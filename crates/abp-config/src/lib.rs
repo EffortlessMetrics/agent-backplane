@@ -302,8 +302,8 @@ pub fn apply_env_overrides(config: &mut BackplaneConfig) {
 /// as a [`ConfigError::ValidationError`]; soft issues come back as warnings.
 ///
 /// The implementation delegates to focused, single-responsibility checks in
-/// the [`validators`] module; this function is the orchestrator that combines
-/// their findings into the public result.
+/// the internal `validators` module; this function is the orchestrator that
+/// combines their findings into the public result.
 pub fn validate_config(config: &BackplaneConfig) -> Result<Vec<ConfigWarning>, ConfigError> {
     let findings = validators::run_all(config);
     if findings.errors.is_empty() {
