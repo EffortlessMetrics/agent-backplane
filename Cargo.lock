@@ -64,6 +64,7 @@ name = "abp-claude-sdk"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-model",
  "abp-runtime",
  "abp-sidecar-sdk",
  "anyhow",
@@ -113,6 +114,7 @@ name = "abp-codex-sdk"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-model",
  "abp-runtime",
  "abp-sdk-types",
  "abp-sidecar-sdk",
@@ -142,6 +144,7 @@ name = "abp-copilot-sdk"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-model",
  "abp-runtime",
  "abp-sdk-types",
  "abp-sidecar-sdk",
@@ -252,6 +255,7 @@ name = "abp-gemini-sdk"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-model",
  "abp-runtime",
  "abp-sidecar-sdk",
  "anyhow",
@@ -342,6 +346,7 @@ name = "abp-kimi-sdk"
 version = "0.1.0"
 dependencies = [
  "abp-core",
+ "abp-model",
  "abp-runtime",
  "abp-sdk-types",
  "abp-sidecar-sdk",
@@ -378,12 +383,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "abp-model"
+version = "0.1.0"
+
+[[package]]
 name = "abp-openai-sdk"
 version = "0.1.0"
 dependencies = [
  "abp-core",
  "abp-host",
  "abp-integrations",
+ "abp-model",
  "abp-runtime",
  "anyhow",
  "chrono",

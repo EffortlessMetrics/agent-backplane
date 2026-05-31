@@ -12,6 +12,7 @@ keywords = ["agent", "backplane", "ai", "codex", "openai"]
 categories = ["development-tools"]
 
 [dependencies]
+abp-model = { path = "../abp-model", version = "0.1.0" }
 abp-core = { path = "../abp-core", version = "0.1.0" }
 abp-runtime = { path = "../abp-runtime", version = "0.1.0" }
 abp-sdk-types = { path = "../abp-sdk-types", version = "0.1.0" }

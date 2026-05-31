@@ -4,6 +4,10 @@
 use abp_core::{
     AgentEvent, AgentEventKind, Capability, CapabilityManifest, SupportLevel, WorkOrder,
 };
+use abp_model::{
+    from_canonical_model as strip_vendor_model_prefix, is_known_model as known_model_contains,
+    to_canonical_model as with_vendor_model_prefix,
+};
 use chrono::Utc;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -31,7 +35,7 @@ const KNOWN_MODELS: &[&str] = &[
 /// Map a vendor model name to the ABP canonical form (`google/<model>`).
 #[must_use]
 pub fn to_canonical_model(vendor_model: &str) -> String {
-    format!("google/{vendor_model}")
+    with_vendor_model_prefix("google", vendor_model)
 }
 
 /// Map an ABP canonical model name back to the vendor model name.
@@ -39,16 +43,13 @@ pub fn to_canonical_model(vendor_model: &str) -> String {
 /// Strips the `google/` prefix if present; otherwise returns the input unchanged.
 #[must_use]
 pub fn from_canonical_model(canonical: &str) -> String {
-    canonical
-        .strip_prefix("google/")
-        .unwrap_or(canonical)
-        .to_string()
+    strip_vendor_model_prefix("google", canonical)
 }
 
 /// Returns `true` if `model` is a known Gemini model identifier.
 #[must_use]
 pub fn is_known_model(model: &str) -> bool {
-    KNOWN_MODELS.contains(&model)
+    known_model_contains(model, KNOWN_MODELS)
 }
 
 // ---------------------------------------------------------------------------
