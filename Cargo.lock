@@ -741,6 +741,7 @@ dependencies = [
  "abp-core",
  "abp-git",
  "abp-glob",
+ "abp-workspace-quota",
  "anyhow",
  "chrono",
  "flate2",
@@ -753,6 +754,16 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+ "walkdir",
+]
+
+[[package]]
+name = "abp-workspace-quota"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "tempfile",
  "walkdir",
 ]
 

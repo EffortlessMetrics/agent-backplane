@@ -15,6 +15,7 @@ categories = ["development-tools"]
 abp-core = { path = "../abp-core", version = "0.1.0" }
 abp-glob = { path = "../abp-glob", version = "0.1.0" }
 abp-git = { path = "../abp-git", version = "0.1.0" }
+abp-workspace-quota = { path = "../abp-workspace-quota", version = "0.1.0" }
 anyhow.workspace = true
 chrono.workspace = true
 flate2.workspace = true
