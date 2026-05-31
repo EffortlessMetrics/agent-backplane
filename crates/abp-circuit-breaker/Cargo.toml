@@ -1,21 +1,19 @@
 [package]
-name = "abp-retry"
+name = "abp-circuit-breaker"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
 repository.workspace = true
-description = "Retry and circuit breaker middleware for Agent Backplane backend calls"
+description = "Standalone circuit breaker primitive for Agent Backplane"
 readme = "README.md"
-keywords = ["agent", "backplane", "retry", "circuit-breaker", "resilience"]
+keywords = ["agent", "backplane", "circuit-breaker", "resilience"]
 categories = ["development-tools"]
 
 [dependencies]
-abp-circuit-breaker = { path = "../abp-circuit-breaker" }
 serde = { workspace = true }
 thiserror.workspace = true
-tokio = { workspace = true }
 tracing.workspace = true
 
 [dev-dependencies]

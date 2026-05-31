@@ -45,7 +45,7 @@
 
 use std::future::Future;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
@@ -208,185 +208,7 @@ where
 // Circuit Breaker
 // ---------------------------------------------------------------------------
 
-/// Possible states of a [`CircuitBreaker`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CircuitState {
-    /// Normal operation — calls are allowed through.
-    Closed,
-    /// Too many failures — calls are rejected immediately.
-    Open,
-    /// Recovery probe — a single call is allowed to test the backend.
-    HalfOpen,
-}
-
-/// Error type returned by [`CircuitBreaker::call`].
-#[derive(Debug, thiserror::Error)]
-pub enum CircuitBreakerError<E> {
-    /// The circuit is open; the call was not attempted.
-    #[error("circuit breaker is open")]
-    Open,
-    /// The underlying operation failed.
-    #[error(transparent)]
-    Inner(E),
-}
-
-/// A circuit breaker that prevents cascading failures by short-circuiting calls
-/// to backends that have exceeded a failure threshold.
-///
-/// After `failure_threshold` consecutive failures the breaker opens and rejects
-/// all calls for `recovery_timeout`. After the timeout it enters a half-open state
-/// where a single probe call is allowed through — success closes the breaker,
-/// failure reopens it.
-///
-/// # Thread Safety
-///
-/// `CircuitBreaker` is `Send + Sync` and safe to share across tasks.
-///
-/// # Examples
-///
-/// ```rust
-/// use abp_retry::CircuitBreaker;
-/// use std::time::Duration;
-///
-/// # #[tokio::main]
-/// # async fn main() {
-/// let cb = CircuitBreaker::new(2, Duration::from_secs(5));
-/// let res: Result<String, abp_retry::CircuitBreakerError<String>> =
-/// cb.call(|| async { Ok::<_, String>("ok".to_string()) }).await;
-/// assert!(res.is_ok());
-/// # }
-/// ```
-pub struct CircuitBreaker {
-    failure_threshold: u32,
-    recovery_timeout: Duration,
-    consecutive_failures: AtomicU32,
-    state: Mutex<CircuitState>,
-    last_failure_time: Mutex<Option<Instant>>,
-}
-
-impl std::fmt::Debug for CircuitBreaker {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CircuitBreaker")
-            .field("failure_threshold", &self.failure_threshold)
-            .field("recovery_timeout", &self.recovery_timeout)
-            .field(
-                "consecutive_failures",
-                &self.consecutive_failures.load(Ordering::SeqCst),
-            )
-            .field("state", &self.state.lock().unwrap())
-            .finish()
-    }
-}
-
-impl CircuitBreaker {
-    /// Creates a new `CircuitBreaker`.
-    ///
-    /// * `failure_threshold` — number of consecutive failures before the breaker opens.
-    /// * `recovery_timeout` — how long the breaker stays open before allowing a probe.
-    pub fn new(failure_threshold: u32, recovery_timeout: Duration) -> Self {
-        Self {
-            failure_threshold,
-            recovery_timeout,
-            consecutive_failures: AtomicU32::new(0),
-            state: Mutex::new(CircuitState::Closed),
-            last_failure_time: Mutex::new(None),
-        }
-    }
-
-    /// Returns the current state of the circuit breaker.
-    pub fn state(&self) -> CircuitState {
-        *self.state.lock().unwrap()
-    }
-
-    /// Returns the number of consecutive failures recorded so far.
-    pub fn consecutive_failures(&self) -> u32 {
-        self.consecutive_failures.load(Ordering::SeqCst)
-    }
-
-    /// Returns the configured failure threshold.
-    pub fn failure_threshold(&self) -> u32 {
-        self.failure_threshold
-    }
-
-    /// Returns the configured recovery timeout.
-    pub fn recovery_timeout(&self) -> Duration {
-        self.recovery_timeout
-    }
-
-    /// Executes `f` through the circuit breaker.
-    ///
-    /// * **Closed** — the call proceeds normally. On failure the failure counter increments;
-    ///   once the threshold is reached the breaker opens.
-    /// * **Open** — if the recovery timeout has elapsed the state transitions to half-open and
-    ///   a probe call is allowed; otherwise returns [`CircuitBreakerError::Open`].
-    /// * **HalfOpen** — a single call is allowed. Success closes the breaker; failure reopens it.
-    pub async fn call<F, Fut, T, E>(&self, f: F) -> Result<T, CircuitBreakerError<E>>
-    where
-        F: FnOnce() -> Fut,
-        Fut: Future<Output = Result<T, E>>,
-    {
-        // Determine whether we may proceed.
-        {
-            let mut state = self.state.lock().unwrap();
-            match *state {
-                CircuitState::Closed => { /* allowed */ }
-                CircuitState::Open => {
-                    let last = self.last_failure_time.lock().unwrap();
-                    if let Some(t) = *last {
-                        if t.elapsed() >= self.recovery_timeout {
-                            tracing::info!("circuit breaker transitioning to half-open");
-                            *state = CircuitState::HalfOpen;
-                            // fall through to allow the probe
-                        } else {
-                            return Err(CircuitBreakerError::Open);
-                        }
-                    } else {
-                        return Err(CircuitBreakerError::Open);
-                    }
-                }
-                CircuitState::HalfOpen => { /* probe allowed */ }
-            }
-        }
-
-        match f().await {
-            Ok(val) => {
-                self.on_success();
-                Ok(val)
-            }
-            Err(e) => {
-                self.on_failure();
-                Err(CircuitBreakerError::Inner(e))
-            }
-        }
-    }
-
-    fn on_success(&self) {
-        self.consecutive_failures.store(0, Ordering::SeqCst);
-        let mut state = self.state.lock().unwrap();
-        if *state == CircuitState::HalfOpen {
-            tracing::info!("circuit breaker closing after successful probe");
-        }
-        *state = CircuitState::Closed;
-    }
-
-    fn on_failure(&self) {
-        let prev = self.consecutive_failures.fetch_add(1, Ordering::SeqCst);
-        let count = prev + 1;
-
-        let mut state = self.state.lock().unwrap();
-        if *state == CircuitState::HalfOpen || count >= self.failure_threshold {
-            tracing::warn!(
-                count,
-                threshold = self.failure_threshold,
-                "circuit breaker opening"
-            );
-            *state = CircuitState::Open;
-            let mut last = self.last_failure_time.lock().unwrap();
-            *last = Some(Instant::now());
-        }
-    }
-}
+pub use abp_circuit_breaker::{CircuitBreaker, CircuitBreakerError, CircuitState};
 
 // ---------------------------------------------------------------------------
 // Error Classification
@@ -708,28 +530,6 @@ where
     Fut: Future<Output = Result<T, E>>,
     C: ErrorClassifier<E>,
 {
-    // Circuit breaker pre-check.
-    if let Some(cb) = opts.circuit_breaker {
-        if cb.state() == CircuitState::Open {
-            // Check if recovery timeout has elapsed by peeking; the actual
-            // transition happens inside cb.call() but we do a quick gate here
-            // to record the metric before even constructing the future.
-            let still_open = {
-                let last = cb.last_failure_time.lock().unwrap();
-                match *last {
-                    Some(t) => t.elapsed() < cb.recovery_timeout,
-                    None => true,
-                }
-            };
-            if still_open {
-                if let Some(m) = opts.metrics {
-                    m.record_circuit_break();
-                }
-                return Err(RetryError::CircuitOpen);
-            }
-        }
-    }
-
     let mut last_err: Option<E> = None;
 
     for attempt in 0..=opts.policy.max_retries {
@@ -737,11 +537,23 @@ where
             m.record_attempt();
         }
 
-        match f().await {
-            Ok(val) => {
-                if let Some(cb) = opts.circuit_breaker {
-                    cb.on_success();
+        let outcome = if let Some(cb) = opts.circuit_breaker {
+            match cb.call(|| f()).await {
+                Ok(val) => Ok(val),
+                Err(CircuitBreakerError::Open) => {
+                    if let Some(m) = opts.metrics {
+                        m.record_circuit_break();
+                    }
+                    return Err(RetryError::CircuitOpen);
                 }
+                Err(CircuitBreakerError::Inner(e)) => Err(e),
+            }
+        } else {
+            f().await
+        };
+
+        match outcome {
+            Ok(val) => {
                 if let Some(budget) = opts.budget {
                     budget.deposit();
                 }
@@ -751,10 +563,6 @@ where
                 return Ok(val);
             }
             Err(e) => {
-                if let Some(cb) = opts.circuit_breaker {
-                    cb.on_failure();
-                }
-
                 // Classify the error.
                 let decision = opts.classifier.classify(&e);
                 tracing::warn!(
