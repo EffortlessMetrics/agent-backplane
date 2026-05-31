@@ -108,7 +108,7 @@ fn claude_to_claude_content_blocks_preserved() {
         },
         ClaudeMessage {
             role: "assistant".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
         },
     ];
 
@@ -118,9 +118,9 @@ fn claude_to_claude_content_blocks_preserved() {
     // System is extracted separately, so from_ir skips it
     assert_eq!(back.len(), 2);
     assert_eq!(back[0].role, "user");
-    assert_eq!(back[0].content, "Show me main.rs");
+    assert_eq!(back[0].content.text(), "Show me main.rs");
     // Re-parse the structured blocks to verify fidelity
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[1].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[1].content.blocks();
     assert_eq!(parsed.len(), 2);
     assert!(matches!(&parsed[0], ClaudeContentBlock::Text { text } if text == "Let me check."));
     assert!(matches!(&parsed[1], ClaudeContentBlock::ToolUse { name, .. } if name == "read_file"));
@@ -237,9 +237,9 @@ fn openai_to_claude_messages_mapped_roles_preserved() {
     // Claude from_ir skips system messages
     assert_eq!(claude_msgs.len(), 2);
     assert_eq!(claude_msgs[0].role, "user");
-    assert_eq!(claude_msgs[0].content, "What is Rust?");
+    assert_eq!(claude_msgs[0].content.text(), "What is Rust?");
     assert_eq!(claude_msgs[1].role, "assistant");
-    assert_eq!(claude_msgs[1].content, "Rust is a systems language.");
+    assert_eq!(claude_msgs[1].content.text(), "Rust is a systems language.");
 }
 
 #[test]
@@ -255,7 +255,7 @@ fn claude_to_openai_content_blocks_become_string() {
     ];
     let msgs = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
 
     let ir = claude_ir::to_ir(&msgs, None);
@@ -321,10 +321,10 @@ fn gemini_to_claude_parts_become_content_blocks() {
 
     assert_eq!(claude_msgs.len(), 2);
     assert_eq!(claude_msgs[0].role, "user");
-    assert_eq!(claude_msgs[0].content, "Do something");
+    assert_eq!(claude_msgs[0].content.text(), "Do something");
     assert_eq!(claude_msgs[1].role, "assistant");
     // Should contain a ToolUse block serialised as JSON
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&claude_msgs[1].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = claude_msgs[1].content.blocks();
     assert!(matches!(&parsed[0], ClaudeContentBlock::ToolUse { name, .. } if name == "search"));
 }
 
@@ -341,7 +341,7 @@ fn claude_to_codex_thinking_blocks_handled() {
     ];
     let msgs = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
 
     let ir = claude_ir::to_ir(&msgs, None);
@@ -420,11 +420,11 @@ fn kimi_to_claude_multi_turn_preserved() {
     // 4 messages minus the system = 3 Claude messages
     assert_eq!(claude_msgs.len(), 3);
     assert_eq!(claude_msgs[0].role, "user");
-    assert_eq!(claude_msgs[0].content, "Hello");
+    assert_eq!(claude_msgs[0].content.text(), "Hello");
     assert_eq!(claude_msgs[1].role, "assistant");
-    assert_eq!(claude_msgs[1].content, "Hi!");
+    assert_eq!(claude_msgs[1].content.text(), "Hi!");
     assert_eq!(claude_msgs[2].role, "user");
-    assert_eq!(claude_msgs[2].content, "Bye");
+    assert_eq!(claude_msgs[2].content.text(), "Bye");
 }
 
 #[test]
@@ -600,7 +600,7 @@ fn invalid_ir_no_crash_on_empty_content() {
 
     let claude = claude_ir::from_ir(&ir);
     assert_eq!(claude.len(), 1);
-    assert!(claude[0].content.is_empty());
+    assert!(claude[0].content.text().is_empty());
 
     let gemini = gemini_ir::from_ir(&ir);
     assert_eq!(gemini.len(), 1);
@@ -747,7 +747,7 @@ fn tool_names_survive_any_mapping_path() {
 
     // Claude roundtrip
     let cl = claude_ir::from_ir(&ir);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&cl[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = cl[0].content.blocks();
     assert!(matches!(&parsed[0], ClaudeContentBlock::ToolUse { name, .. } if name == tool_name));
 
     // Gemini roundtrip (tool id is synthesized, but name preserved)
@@ -835,7 +835,7 @@ fn multiple_messages_maintain_order() {
     // Claude preserves order (no system here)
     let cl = claude_ir::from_ir(&ir);
     for (i, msg) in cl.iter().enumerate() {
-        assert_eq!(msg.content, messages[i]);
+        assert_eq!(msg.content.text(), messages[i]);
     }
 
     // Gemini preserves order

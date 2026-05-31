@@ -31,6 +31,10 @@ fn message_create_params_alias_matches_request() {
         stop_sequences: None,
         thinking: None,
         stream: None,
+        top_p: None,
+        top_k: None,
+        tools: None,
+        tool_choice: None,
     };
     assert_eq!(req.model, "claude-sonnet-4-20250514");
 }
@@ -62,6 +66,10 @@ async fn anthropic_client_create_default_mock() {
         stop_sequences: None,
         thinking: None,
         stream: None,
+        top_p: None,
+        top_k: None,
+        tools: None,
+        tool_choice: None,
     };
 
     let resp = client.create(req).await.unwrap();
@@ -89,6 +97,10 @@ async fn anthropic_client_create_stream_mock() {
         stop_sequences: None,
         thinking: None,
         stream: Some(true),
+        top_p: None,
+        top_k: None,
+        tools: None,
+        tool_choice: None,
     };
 
     let mut stream = client.create_stream(req).await.unwrap();
@@ -117,6 +129,10 @@ async fn anthropic_client_rejects_empty_messages() {
         stop_sequences: None,
         thinking: None,
         stream: None,
+        top_p: None,
+        top_k: None,
+        tools: None,
+        tool_choice: None,
     };
 
     let err = client.create(req).await.unwrap_err();
@@ -143,6 +159,10 @@ fn request_json_matches_anthropic_wire_format() {
         stop_sequences: None,
         thinking: None,
         stream: None,
+        top_p: None,
+        top_k: None,
+        tools: None,
+        tool_choice: None,
     };
 
     let v = serde_json::to_value(&req).unwrap();
@@ -190,6 +210,10 @@ fn request_with_tool_use_content_json() {
         stop_sequences: None,
         thinking: None,
         stream: None,
+        top_p: None,
+        top_k: None,
+        tools: None,
+        tool_choice: None,
     };
 
     let v = serde_json::to_value(&req).unwrap();

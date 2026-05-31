@@ -504,7 +504,11 @@ mod tests {
                 }],
                 system: None,
                 temperature: None,
+                top_p: None,
+                top_k: None,
                 stop_sequences: None,
+                tools: None,
+                tool_choice: None,
                 thinking: None,
                 stream: None,
             };
@@ -591,7 +595,11 @@ mod tests {
                 }],
                 system: None,
                 temperature: None,
+                top_p: None,
+                top_k: None,
                 stop_sequences: None,
+                tools: None,
+                tool_choice: None,
                 thinking: None,
                 stream: Some(true),
             };

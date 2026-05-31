@@ -398,6 +398,10 @@ fn capability_serializes_stably() {
         ),
         (Capability::McpClient, "mcp_client"),
         (Capability::McpServer, "mcp_server"),
+        (Capability::Interrupt, "interrupt"),
+        (Capability::PermissionCallback, "permission_callback"),
+        (Capability::Subagents, "subagents"),
+        (Capability::CustomTools, "custom_tools"),
     ];
     for (cap, expected) in cases {
         assert_eq!(

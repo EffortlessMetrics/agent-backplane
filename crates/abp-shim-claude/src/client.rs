@@ -110,6 +110,8 @@ impl Client {
     /// Send a streaming messages request.
     ///
     /// Returns a stream of [`StreamEvent`]s parsed from the SSE response.
+    /// Uses [`SseParser`][crate::streaming::SseParser] to parse the raw
+    /// byte stream into typed events.
     ///
     /// # Errors
     ///
@@ -118,12 +120,22 @@ impl Client {
         &self,
         request: &MessagesRequest,
     ) -> Result<impl Stream<Item = Result<StreamEvent>>> {
+        use std::pin::Pin;
+        use std::task::{Context, Poll};
+
         let url = format!("{}/messages", self.base_url);
+
+        // Ensure the stream flag is set in the request body.
+        let mut body = serde_json::to_value(request)
+            .map_err(|e| ClientError::Builder(format!("failed to serialize request: {e}")))?;
+        body.as_object_mut()
+            .map(|m| m.insert("stream".into(), serde_json::Value::Bool(true)));
+
         let resp = self
             .http
             .post(&url)
             .headers(self.default_headers())
-            .json(request)
+            .body(body.to_string())
             .send()
             .await?;
 
@@ -136,8 +148,91 @@ impl Client {
             });
         }
 
-        let _stream = resp.bytes_stream();
-        Ok(tokio_stream::empty())
+        // Collect SSE chunks from the response body, parse them through
+        // the SseParser, and yield typed StreamEvent values.
+        let byte_stream = resp.bytes_stream();
+
+        // Map the bytes stream to Vec<u8> to avoid naming the `bytes::Bytes`
+        // type (it is a transitive dependency of reqwest, not a direct dep).
+        let mapped = tokio_stream::StreamExt::map(byte_stream, |chunk| chunk.map(|b| b.to_vec()));
+
+        /// Internal stream adapter that feeds byte chunks into an
+        /// `SseParser` and yields parsed `StreamEvent`s.
+        struct SseStream<S> {
+            inner: Pin<Box<S>>,
+            parser: crate::streaming::SseParser,
+            pending: std::collections::VecDeque<
+                std::result::Result<StreamEvent, crate::error::ClaudeShimError>,
+            >,
+        }
+
+        impl<S> Stream for SseStream<S>
+        where
+            S: Stream<Item = std::result::Result<Vec<u8>, reqwest::Error>> + Unpin,
+        {
+            type Item = Result<StreamEvent>;
+
+            fn poll_next(
+                mut self: Pin<&mut Self>,
+                cx: &mut Context<'_>,
+            ) -> Poll<Option<Self::Item>> {
+                // Drain buffered events first.
+                if let Some(event) = self.pending.pop_front() {
+                    return Poll::Ready(Some(
+                        event.map_err(|e| ClientError::Builder(e.to_string())),
+                    ));
+                }
+
+                if self.parser.is_done() {
+                    return Poll::Ready(None);
+                }
+
+                // Poll the underlying byte stream for more data.
+                match self.inner.as_mut().poll_next(cx) {
+                    Poll::Ready(Some(Ok(bytes))) => {
+                        if let Ok(text) = std::str::from_utf8(&bytes) {
+                            self.parser.feed(text);
+                        }
+                        // Buffer all drained events (collect first to avoid
+                        // double-mutable-borrow of self).
+                        let drained: Vec<_> = self.parser.drain().collect();
+                        self.pending.extend(drained);
+                        if let Some(event) = self.pending.pop_front() {
+                            Poll::Ready(Some(
+                                event.map_err(|e| ClientError::Builder(e.to_string())),
+                            ))
+                        } else if self.parser.is_done() {
+                            Poll::Ready(None)
+                        } else {
+                            // Need more data — re-register waker.
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                    }
+                    Poll::Ready(Some(Err(e))) => Poll::Ready(Some(Err(ClientError::Http(e)))),
+                    Poll::Ready(None) => {
+                        // Upstream closed — finish the parser.
+                        self.parser.finish();
+                        let drained: Vec<_> = self.parser.drain().collect();
+                        self.pending.extend(drained);
+                        if let Some(event) = self.pending.pop_front() {
+                            Poll::Ready(Some(
+                                event.map_err(|e| ClientError::Builder(e.to_string())),
+                            ))
+                        } else {
+                            Poll::Ready(None)
+                        }
+                    }
+                    Poll::Pending => Poll::Pending,
+                }
+            }
+        }
+
+        Ok(SseStream {
+            inner: Box::pin(mapped),
+            parser: crate::streaming::SseParser::new(),
+            pending: std::collections::VecDeque::new(),
+        })
     }
 }
 

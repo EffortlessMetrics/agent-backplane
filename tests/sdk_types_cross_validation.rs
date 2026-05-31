@@ -790,9 +790,9 @@ fn cross_vendor_openai_to_ir_to_claude_compatible() {
     // Claude skips system so user+assistant remain
     assert_eq!(claude_msgs.len(), 2);
     assert_eq!(claude_msgs[0].role, "user");
-    assert_eq!(claude_msgs[0].content, "Hello");
+    assert_eq!(claude_msgs[0].content.text(), "Hello");
     assert_eq!(claude_msgs[1].role, "assistant");
-    assert_eq!(claude_msgs[1].content, "Hi there!");
+    assert_eq!(claude_msgs[1].content.text(), "Hi there!");
 }
 
 #[test]

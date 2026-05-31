@@ -233,6 +233,22 @@ function buildMappedRequest(ctx) {
     maxTurns: pickNumber(merged, ["maxTurns", "max_turns"]),
     systemPrompt: pickString(merged, ["systemPrompt", "system_prompt"]),
     mcpServers: pickObject(merged, ["mcpServers", "mcp_servers"]),
+    // V1 parity options
+    tools: pickArray(merged, ["tools"]),
+    continue: pickBoolean(merged, ["continue"]),
+    forkSession: pickBoolean(merged, ["forkSession", "fork_session"]),
+    maxBudgetUsd: pickNumber(merged, ["maxBudgetUsd", "max_budget_usd"]),
+    includePartialMessages: pickBoolean(merged, ["includePartialMessages", "include_partial_messages"]),
+    outputFormat: pickValue(merged, ["outputFormat", "output_format"]),
+    canUseTool: pickValue(merged, ["canUseTool", "can_use_tool"]),
+    hooks: pickObject(merged, ["hooks"]),
+    agents: pickArray(merged, ["agents"]),
+    plugins: pickArray(merged, ["plugins"]),
+    sandbox: pickValue(merged, ["sandbox"]),
+    thinking: pickValue(merged, ["thinking"]),
+    effort: pickString(merged, ["effort"]),
+    persistSession: pickBoolean(merged, ["persistSession", "persist_session"]),
+    enableFileCheckpointing: pickBoolean(merged, ["enableFileCheckpointing", "enable_file_checkpointing"]),
   });
 
   return {
@@ -615,6 +631,138 @@ function collectUsage(state, rawMessage) {
   }
 }
 
+function emitHookEvent(ctx, rawType, rawMessage) {
+  if (!rawType.includes("pre_tool_use") && !rawType.includes("post_tool_use")) {
+    return false;
+  }
+  const toolName = extractToolName(rawMessage) || "unknown_tool";
+  const toolUseId = extractToolUseId(rawMessage);
+  const hookPhase = rawType.includes("pre_tool_use") ? "pre_tool_use" : "post_tool_use";
+
+  if (hookPhase === "post_tool_use") {
+    ctx.emitToolResult({
+      toolName: String(toolName),
+      toolUseId: toolUseId ? String(toolUseId) : null,
+      output: extractToolOutput(rawMessage),
+      isError: !!rawMessage?.is_error || !!rawMessage?.isError,
+      ext: { hook: hookPhase },
+    });
+  } else {
+    ctx.emitToolCall({
+      toolName: String(toolName),
+      toolUseId: toolUseId ? String(toolUseId) : null,
+      parentToolUseId:
+        rawMessage?.parent_tool_use_id || rawMessage?.parentToolUseId || null,
+      input: extractToolInput(rawMessage),
+      ext: { hook: hookPhase },
+    });
+  }
+  return true;
+}
+
+// Typed dispatch map for known Claude SDK message types.
+// Each handler returns true if the message was fully handled.
+function handleContentBlockStart(ctx, rawMessage, state) {
+  collectUsage(state, rawMessage);
+  const block = rawMessage?.content_block;
+  if (block && block.type === "tool_use") {
+    ctx.emitToolCall({
+      toolName: String(block.name || "unknown_tool"),
+      toolUseId: block.id || null,
+      parentToolUseId: null,
+      input: block.input || {},
+    });
+    return true;
+  }
+  if (block && typeof block.text === "string") {
+    emitAssistant(ctx, state, block.text, false);
+    return true;
+  }
+  return false;
+}
+
+function handleContentBlockDelta(ctx, rawMessage, state) {
+  collectUsage(state, rawMessage);
+  const delta = rawMessage?.delta;
+  if (!delta) {
+    return false;
+  }
+  if (delta.type === "text_delta" && typeof delta.text === "string") {
+    emitAssistant(ctx, state, delta.text, true);
+    return true;
+  }
+  if (delta.type === "input_json_delta" && typeof delta.partial_json === "string") {
+    // Partial tool input — no direct emission needed at this level
+    return true;
+  }
+  return false;
+}
+
+function handleContentBlockStop(ctx, rawMessage, state) {
+  collectUsage(state, rawMessage);
+  return true;
+}
+
+function handleMessageStart(ctx, rawMessage, state) {
+  collectUsage(state, rawMessage);
+  const msg = rawMessage?.message;
+  if (msg && msg.usage) {
+    state.usageRaw = mergeUsage(state.usageRaw, msg.usage);
+  }
+  return true;
+}
+
+function handleMessageDelta(ctx, rawMessage, state) {
+  collectUsage(state, rawMessage);
+  const delta = rawMessage?.delta;
+  if (delta && typeof delta.stop_reason === "string") {
+    state.stopReason = delta.stop_reason;
+  }
+  if (rawMessage?.usage) {
+    state.usageRaw = mergeUsage(state.usageRaw, rawMessage.usage);
+  }
+  return true;
+}
+
+function handleMessageStop(ctx, rawMessage, state) {
+  collectUsage(state, rawMessage);
+  return true;
+}
+
+function handleToolUse(ctx, rawMessage, state) {
+  collectUsage(state, rawMessage);
+  ctx.emitToolCall({
+    toolName: String(extractToolName(rawMessage) || "unknown_tool"),
+    toolUseId: extractToolUseId(rawMessage),
+    parentToolUseId:
+      rawMessage?.parent_tool_use_id || rawMessage?.parentToolUseId || null,
+    input: extractToolInput(rawMessage),
+  });
+  return true;
+}
+
+function handleToolResult(ctx, rawMessage, state) {
+  collectUsage(state, rawMessage);
+  ctx.emitToolResult({
+    toolName: String(extractToolName(rawMessage) || "unknown_tool"),
+    toolUseId: extractToolUseId(rawMessage),
+    output: extractToolOutput(rawMessage),
+    isError: !!rawMessage?.is_error || !!rawMessage?.isError,
+  });
+  return true;
+}
+
+const TYPED_EVENTS = {
+  "content_block_start": handleContentBlockStart,
+  "content_block_delta": handleContentBlockDelta,
+  "content_block_stop": handleContentBlockStop,
+  "message_start": handleMessageStart,
+  "message_delta": handleMessageDelta,
+  "message_stop": handleMessageStop,
+  "tool_use": handleToolUse,
+  "tool_result": handleToolResult,
+};
+
 function emitMappedMessage(ctx, rawMessage, state) {
   if (typeof rawMessage === "string") {
     emitAssistant(ctx, state, rawMessage, true);
@@ -627,6 +775,18 @@ function emitMappedMessage(ctx, rawMessage, state) {
 
   collectUsage(state, rawMessage);
   const rawType = lowerType(rawMessage.type || rawMessage.kind || rawMessage.event);
+
+  // Hook event normalization — detect pre_tool_use / post_tool_use first
+  if (emitHookEvent(ctx, rawType, rawMessage)) {
+    return;
+  }
+
+  // Typed dispatch for known Claude SDK message types
+  const exactType = String(rawMessage.type || "");
+  const typedHandler = TYPED_EVENTS[exactType];
+  if (typedHandler && typedHandler(ctx, rawMessage, state)) {
+    return;
+  }
 
   let handledText = false;
   let handledTool = false;
@@ -1023,6 +1183,8 @@ async function runOnce(ctx, queryFn, request, passthroughMode) {
     lastAssistantText: "",
     sawAssistantDelta: false,
     sawAssistantMessage: false,
+    stopReason: null,
+    numTurns: 0,
   };
 
   const response = await invokeQuery(queryFn, request);
@@ -1048,6 +1210,8 @@ async function runOnce(ctx, queryFn, request, passthroughMode) {
     usageRaw: state.usageRaw,
     usage: normalizeUsage(state.usageRaw),
     outcome: "complete",
+    stopReason: state.stopReason,
+    numTurns: state.numTurns,
     ...(passthroughMode ? { stream_equivalent: true } : {}),
   };
 }
@@ -1064,6 +1228,8 @@ async function runOnceWithClientSession(
     lastAssistantText: "",
     sawAssistantDelta: false,
     sawAssistantMessage: false,
+    stopReason: null,
+    numTurns: 0,
   };
 
   const queryResult = await withTimeout(
@@ -1095,6 +1261,8 @@ async function runOnceWithClientSession(
     usageRaw: state.usageRaw,
     usage: normalizeUsage(state.usageRaw),
     outcome: "complete",
+    stopReason: state.stopReason,
+    numTurns: state.numTurns,
     ...(passthroughMode ? { stream_equivalent: true } : {}),
   };
 }
@@ -1127,6 +1295,27 @@ async function run(ctx) {
   const request = usePassthrough ? passthroughRequest : buildMappedRequest(ctx);
   if (!usePassthrough && (!request.prompt || String(request.prompt).trim().length === 0)) {
     ctx.emitWarning("work order task is empty; running Claude SDK with an empty prompt");
+  }
+
+  // Session lifecycle — emit session_started or session_resumed
+  const requestOptions = asObject(request?.options);
+  const sessionId = pickString(requestOptions, ["sessionId", "session_id"]) || null;
+  const resumeFrom = pickValue(requestOptions, ["resume", "resume_session", "resume_session_id"]) || null;
+  if (resumeFrom && sessionId) {
+    if (typeof ctx.emitRaw === "function") {
+      ctx.emitRaw({
+        type: "session_resumed",
+        session_id: sessionId,
+        resumed_from: String(resumeFrom),
+      });
+    }
+  } else if (sessionId) {
+    if (typeof ctx.emitRaw === "function") {
+      ctx.emitRaw({
+        type: "session_started",
+        session_id: sessionId,
+      });
+    }
   }
 
   let useClientMode = clientConfig.enabled;
@@ -1175,6 +1364,9 @@ async function run(ctx) {
         sdk_module: sdk.moduleName,
         transport: useClientMode ? "client" : "query",
         client_mode: useClientMode,
+        sdk_surface: "ts_v1",
+        ...(sessionId ? { session_id: sessionId } : {}),
+        ...(result.stopReason ? { stop_reason: result.stopReason } : {}),
         ...(useClientMode
           ? {
             client_session_key: clientSession?.key || null,
@@ -1228,6 +1420,15 @@ module.exports = {
     hooks_pre_tool_use: "native",
     hooks_post_tool_use: "native",
     mcp_client: "native",
+    tool_ask_user: "native",
+    permission_callback: "native",
   },
   run,
+  // Exported for testing
+  _test: {
+    buildMappedRequest,
+    emitMappedMessage,
+    emitHookEvent,
+    TYPED_EVENTS,
+  },
 };

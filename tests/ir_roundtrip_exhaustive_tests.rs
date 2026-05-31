@@ -203,7 +203,7 @@ fn claude_simple_text_roundtrip() {
     let back = claude_lowering::from_ir(&conv);
     assert_eq!(back.len(), 1);
     assert_eq!(back[0].role, "user");
-    assert_eq!(back[0].content, "Hello, world!");
+    assert_eq!(back[0].content.text(), "Hello, world!");
 }
 
 #[test]
@@ -228,7 +228,7 @@ fn claude_multi_turn_roundtrip() {
     // System messages are skipped in from_ir for Claude
     assert_eq!(back.len(), 3);
     assert_eq!(back[0].role, "user");
-    assert_eq!(back[2].content, "Bye");
+    assert_eq!(back[2].content.text(), "Bye");
 }
 
 #[test]
@@ -253,7 +253,7 @@ fn claude_tool_use_roundtrip() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = claude_lowering::to_ir(&msgs, None);
     assert!(matches!(
@@ -261,7 +261,7 @@ fn claude_tool_use_roundtrip() {
         IrContentBlock::ToolUse { name, .. } if name == "grep"
     ));
     let back = claude_lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     assert!(matches!(&parsed[0], ClaudeContentBlock::ToolUse { name, .. } if name == "grep"));
 }
 
@@ -274,7 +274,7 @@ fn claude_tool_result_roundtrip() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = claude_lowering::to_ir(&msgs, None);
     assert!(matches!(
@@ -282,7 +282,7 @@ fn claude_tool_result_roundtrip() {
         IrContentBlock::ToolResult { tool_use_id, .. } if tool_use_id == "tu_1"
     ));
     let back = claude_lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     assert!(matches!(
         &parsed[0],
         ClaudeContentBlock::ToolResult { tool_use_id, .. } if tool_use_id == "tu_1"
@@ -1110,9 +1110,9 @@ fn cross_openai_to_claude_text() {
     // Claude skips system messages in from_ir
     assert_eq!(claude_msgs.len(), 2);
     assert_eq!(claude_msgs[0].role, "user");
-    assert_eq!(claude_msgs[0].content, "Hello");
+    assert_eq!(claude_msgs[0].content.text(), "Hello");
     assert_eq!(claude_msgs[1].role, "assistant");
-    assert_eq!(claude_msgs[1].content, "Hi there!");
+    assert_eq!(claude_msgs[1].content.text(), "Hi there!");
     // System is extracted separately
     let sys = claude_lowering::extract_system_prompt(&ir);
     assert_eq!(sys.as_deref(), Some("Be helpful."));
@@ -1207,7 +1207,7 @@ fn cross_kimi_to_claude_text() {
     assert_eq!(sys.as_deref(), Some("Be smart."));
     let claude_msgs = claude_lowering::from_ir(&ir);
     assert_eq!(claude_msgs.len(), 1);
-    assert_eq!(claude_msgs[0].content, "Question?");
+    assert_eq!(claude_msgs[0].content.text(), "Question?");
 }
 
 #[test]
@@ -1320,7 +1320,7 @@ fn cross_openai_tool_call_to_claude_via_ir() {
     ));
     // Convert to Claude
     let claude_msgs = claude_lowering::from_ir(&ir);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&claude_msgs[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = claude_msgs[0].content.blocks();
     assert!(matches!(
         &parsed[0],
         ClaudeContentBlock::ToolUse { name, .. } if name == "read_file"
@@ -1487,7 +1487,7 @@ fn claude_image_block_roundtrip_via_ir() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = claude_lowering::to_ir(&msgs, None);
     assert!(matches!(

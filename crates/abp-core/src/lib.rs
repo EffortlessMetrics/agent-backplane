@@ -356,6 +356,15 @@ pub enum Capability {
     Embeddings,
     /// Image generation (e.g. DALL-E).
     ImageGeneration,
+
+    /// Interrupt or cancel a running operation.
+    Interrupt,
+    /// Permission request/grant/deny callback support.
+    PermissionCallback,
+    /// Spawn and manage sub-agent processes.
+    Subagents,
+    /// User-defined custom tools beyond the built-in set.
+    CustomTools,
 }
 
 /// How well a backend supports a given [`Capability`].
@@ -619,11 +628,21 @@ pub struct AgentEvent {
     #[serde(flatten)]
     pub kind: AgentEventKind,
 
-    /// Extension field for passthrough mode raw data.
+    /// Optional extension metadata. Sidecar-specific, not part of the
+    /// core contract.
     ///
     /// In passthrough mode, this contains the original SDK message
     /// for lossless reconstruction. The key `raw_message` contains
     /// the verbatim SDK message.
+    ///
+    /// Well-known keys emitted by Claude Agent SDK surfaces:
+    /// - `hook`: Hook phase (`"pre_tool_use"`, `"post_tool_use"`, `"post_tool_use_failure"`)
+    /// - `decision`: Hook decision (`"allow"`, `"deny"`) when `hook = "pre_tool_use"`
+    /// - `partial`: `true` for streaming partial messages
+    /// - `notification`: `true` when a warning originates from an SDK notification
+    /// - `level`: Severity level (`"info"`, `"warn"`, `"error"`) for notification warnings
+    /// - `checkpoint_id`: Checkpoint identifier for checkpoint events
+    /// - `checkpoint`: `true` when no specific checkpoint_id is available
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ext: Option<BTreeMap<String, serde_json::Value>>,
 }
@@ -697,6 +716,55 @@ pub enum AgentEventKind {
         exit_code: Option<i32>,
         /// Truncated preview of the command output.
         output_preview: Option<String>,
+    },
+
+    /// An agent session has been started.
+    SessionStarted {
+        /// Unique identifier for the session.
+        session_id: String,
+    },
+
+    /// An agent session has been resumed from a previous state.
+    SessionResumed {
+        /// Unique identifier for the resumed session.
+        session_id: String,
+        /// Identifier of the session or checkpoint being resumed from.
+        resumed_from: String,
+    },
+
+    /// A tool permission request was made by the agent.
+    PermissionRequested {
+        /// Name of the tool requesting permission.
+        tool_name: String,
+        /// The input that would be passed to the tool.
+        input: serde_json::Value,
+    },
+
+    /// A tool permission request was resolved.
+    PermissionResolved {
+        /// Name of the tool whose permission was resolved.
+        tool_name: String,
+        /// Whether the permission was granted.
+        granted: bool,
+        /// Optional reason for the decision.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        reason: Option<String>,
+    },
+
+    /// A sub-agent was spawned by the primary agent.
+    SubagentSpawned {
+        /// Unique identifier for the sub-agent.
+        agent_id: String,
+        /// Description of the task assigned to the sub-agent.
+        task: String,
+    },
+
+    /// A sub-agent has completed its work.
+    SubagentCompleted {
+        /// Unique identifier of the completed sub-agent.
+        agent_id: String,
+        /// Whether the sub-agent completed successfully.
+        success: bool,
     },
 
     /// A non-fatal warning emitted during the run.

@@ -458,7 +458,7 @@ mod claude_to_gemini {
         }];
         let claude_msgs = vec![ClaudeMessage {
             role: "assistant".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
         }];
         let ir = abp_claude_sdk::lowering::to_ir(&claude_msgs, None);
         assert!(
@@ -538,7 +538,7 @@ mod claude_to_gemini {
         }];
         let msgs = vec![ClaudeMessage {
             role: "assistant".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
         }];
         let ir = abp_claude_sdk::lowering::to_ir(&msgs, None);
         assert!(

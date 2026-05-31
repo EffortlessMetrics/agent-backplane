@@ -518,7 +518,11 @@ mod claude_roundtrip {
             }],
             system: None,
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         }
@@ -593,7 +597,7 @@ mod claude_roundtrip {
         let ir = message_to_ir(&msg);
         assert_eq!(ir.role, "assistant");
         // Multi-block content is serialized to JSON string
-        assert!(!ir.content.is_empty());
+        assert!(!ir.content.text().is_empty());
     }
 
     // ── Request conversion ──
@@ -619,7 +623,11 @@ mod claude_roundtrip {
             }],
             system: Some("Be concise".into()),
             temperature: Some(0.3),
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };
@@ -696,7 +704,11 @@ mod claude_roundtrip {
             messages: vec![],
             system: None,
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };
@@ -1638,7 +1650,11 @@ mod cross_shim {
             }],
             system: None,
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };

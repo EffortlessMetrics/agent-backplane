@@ -242,6 +242,10 @@ fn all_capabilities() -> Vec<Capability> {
         Capability::BatchMode,
         Capability::Embeddings,
         Capability::ImageGeneration,
+        Capability::Interrupt,
+        Capability::PermissionCallback,
+        Capability::Subagents,
+        Capability::CustomTools,
     ]
 }
 
@@ -292,6 +296,10 @@ fn capability_serialize_all_variants_snake_case() {
         ("batch_mode", Capability::BatchMode),
         ("embeddings", Capability::Embeddings),
         ("image_generation", Capability::ImageGeneration),
+        ("interrupt", Capability::Interrupt),
+        ("permission_callback", Capability::PermissionCallback),
+        ("subagents", Capability::Subagents),
+        ("custom_tools", Capability::CustomTools),
     ];
     for (name, cap) in &expected {
         let json = serde_json::to_string(cap).unwrap();
@@ -310,7 +318,7 @@ fn capability_roundtrip_all() {
 
 #[test]
 fn capability_count() {
-    assert_eq!(all_capabilities().len(), 41);
+    assert_eq!(all_capabilities().len(), 45);
 }
 
 #[test]
@@ -1630,6 +1638,30 @@ fn agent_event_all_kinds_roundtrip() {
             command: "c".into(),
             exit_code: None,
             output_preview: None,
+        },
+        AgentEventKind::SessionStarted {
+            session_id: "s1".into(),
+        },
+        AgentEventKind::SessionResumed {
+            session_id: "s2".into(),
+            resumed_from: "s1".into(),
+        },
+        AgentEventKind::PermissionRequested {
+            tool_name: "bash".into(),
+            input: json!({}),
+        },
+        AgentEventKind::PermissionResolved {
+            tool_name: "bash".into(),
+            granted: true,
+            reason: None,
+        },
+        AgentEventKind::SubagentSpawned {
+            agent_id: "a1".into(),
+            task: "t".into(),
+        },
+        AgentEventKind::SubagentCompleted {
+            agent_id: "a1".into(),
+            success: true,
         },
         AgentEventKind::Warning {
             message: "w".into(),

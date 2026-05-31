@@ -166,7 +166,10 @@ Receipt { status: success, events: [...], receipt_sha256: "ab3f…" }
 
 | Vendor | SDK Crate | Sidecar Host | Work Order Mapping | Response Mapping | Tool Translation | Streaming |
 |--------|-----------|-------------|-------------------|-----------------|-----------------|-----------|
-| **Anthropic Claude** | `abp-claude-sdk` | `hosts/claude` | ✅ | ✅ | ✅ | ✅ |
+| **Claude Messages API** | `abp-claude-sdk` | — | ✅ | ✅ | ✅ | ✅ |
+| **Claude Agent TS V1** | `abp-claude-sdk` | `hosts/claude` | ✅ | ✅ | ✅ | ✅ |
+| **Claude Agent TS V2** *(preview)* | `abp-claude-sdk` | `hosts/claude` | ✅ | ✅ | ✅ | ✅ |
+| **Claude Agent Python** | `abp-claude-sdk` | `hosts/python` | ✅ | ✅ | ✅ | ✅ |
 | **OpenAI Codex** | `abp-codex-sdk` | `hosts/codex` | ✅ | ✅ | ✅ | ✅ |
 | **OpenAI Chat** | `abp-openai-sdk` | — | ✅ | ✅ | ✅ | ✅ |
 | **Google Gemini** | `abp-gemini-sdk` | `hosts/gemini` | ✅ | ✅ | ✅ | ✅ |
@@ -235,7 +238,7 @@ Example sidecars live in `hosts/`. Each speaks the JSONL protocol over stdio:
 | Host | Runtime | Notes |
 |------|---------|-------|
 | `hosts/node` | Node.js | Minimal JSONL sidecar example |
-| `hosts/python` | Python | Minimal example, optional `claude_agent_sdk` client mode |
+| `hosts/python` | Python | Claude Agent SDK sidecar with policy engine, artifacts, and client mode |
 | `hosts/claude` | Node.js | Claude-oriented sidecar with pluggable adapter module |
 | `hosts/codex` | Node.js | Codex-oriented sidecar with passthrough/mapped modes |
 | `hosts/copilot` | Node.js | GitHub Copilot sidecar with agent protocol adapter |
@@ -398,6 +401,11 @@ cargo insta review                        # snapshot review
 cargo bench --workspace                   # benchmarks
 cd fuzz && cargo +nightly fuzz run fuzz_envelope  # fuzz
 ```
+
+Cryptographic test fixtures are generated at runtime with
+[`uselesskey`](https://docs.rs/uselesskey/0.2.0/uselesskey/). That keeps PEM and
+X.509 material deterministic for tests without committing static private keys or
+certificates into the repository.
 
 ### CI Pipeline
 

@@ -387,16 +387,33 @@ fn tool_result_with_error_flag() {
 fn map_tool_result_creates_user_message() {
     let msg = map_tool_result("tu_1", "success output", false);
     assert_eq!(msg.role, "user");
-    assert!(msg.content.contains("tool_result"));
-    assert!(msg.content.contains("tu_1"));
-    assert!(msg.content.contains("success output"));
+    let blocks = msg.content.blocks();
+    assert_eq!(blocks.len(), 1);
+    match &blocks[0] {
+        ClaudeContentBlock::ToolResult {
+            tool_use_id,
+            content,
+            is_error,
+        } => {
+            assert_eq!(tool_use_id, "tu_1");
+            assert_eq!(content.as_deref(), Some("success output"));
+            assert_eq!(*is_error, None);
+        }
+        other => panic!("expected ToolResult, got {other:?}"),
+    }
 }
 
 #[test]
 fn map_tool_result_with_error() {
     let msg = map_tool_result("tu_err", "failed", true);
     assert_eq!(msg.role, "user");
-    assert!(msg.content.contains("is_error"));
+    let blocks = msg.content.blocks();
+    match &blocks[0] {
+        ClaudeContentBlock::ToolResult { is_error, .. } => {
+            assert_eq!(*is_error, Some(true));
+        }
+        other => panic!("expected ToolResult, got {other:?}"),
+    }
 }
 
 // ---------------------------------------------------------------------------

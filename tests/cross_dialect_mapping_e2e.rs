@@ -68,7 +68,11 @@ fn claude_request_simple(system: &str, user: &str) -> abp_shim_claude::MessageRe
         }],
         system: Some(system.into()),
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     }
@@ -143,7 +147,7 @@ mod openai_to_claude {
         assert!(!claude_msgs.is_empty());
         // The user message text should be preserved
         let user_msg = claude_msgs.iter().find(|m| m.role == "user").unwrap();
-        assert_eq!(user_msg.content, "What is Rust?");
+        assert_eq!(user_msg.content.text(), "What is Rust?");
     }
 
     #[test]
@@ -171,9 +175,13 @@ mod openai_to_claude {
         let ir = abp_shim_openai::messages_to_ir(&msgs);
         let claude_msgs = abp_claude_sdk::lowering::from_ir(&ir);
 
-        // The assistant message with tool_use should be serialized as JSON blocks
+        // The assistant message with tool_use should contain a ToolUse block
         let assistant = claude_msgs.iter().find(|m| m.role == "assistant").unwrap();
-        assert!(assistant.content.contains("read_file"));
+        assert!(
+            assistant.content.blocks().iter().any(|b| {
+                matches!(b, abp_claude_sdk::dialect::ClaudeContentBlock::ToolUse { name, .. } if name == "read_file")
+            })
+        );
     }
 
     #[test]
@@ -196,8 +204,12 @@ mod openai_to_claude {
         // Tool result in Claude is a user message with ToolResult content blocks
         let tool_msg = &claude_msgs[claude_msgs.len() - 1];
         assert!(
-            tool_msg.content.contains("tool_result")
-                || tool_msg.content.contains("contents of a.rs")
+            tool_msg.content.blocks().iter().any(|b| {
+                matches!(
+                    b,
+                    abp_claude_sdk::dialect::ClaudeContentBlock::ToolResult { .. }
+                )
+            }) || tool_msg.content.text().contains("contents of a.rs")
         );
     }
 
@@ -271,7 +283,7 @@ mod claude_to_openai {
         }];
         let claude_msgs = vec![abp_claude_sdk::dialect::ClaudeMessage {
             role: "assistant".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
         }];
         let ir = abp_claude_sdk::lowering::to_ir(&claude_msgs, None);
         let openai_msgs = abp_openai_sdk::lowering::from_ir(&ir);
@@ -293,7 +305,7 @@ mod claude_to_openai {
         }];
         let claude_msgs = vec![abp_claude_sdk::dialect::ClaudeMessage {
             role: "user".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
         }];
         let ir = abp_claude_sdk::lowering::to_ir(&claude_msgs, None);
         let openai_msgs = abp_openai_sdk::lowering::from_ir(&ir);
@@ -319,7 +331,7 @@ mod claude_to_openai {
         ];
         let claude_msgs = vec![abp_claude_sdk::dialect::ClaudeMessage {
             role: "assistant".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
         }];
         let ir = abp_claude_sdk::lowering::to_ir(&claude_msgs, None);
         let openai_msgs = abp_openai_sdk::lowering::from_ir(&ir);
@@ -521,7 +533,7 @@ mod claude_to_gemini {
         }];
         let claude_msgs = vec![abp_claude_sdk::dialect::ClaudeMessage {
             role: "assistant".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
         }];
         let ir = abp_claude_sdk::lowering::to_ir(&claude_msgs, None);
         let gemini = abp_gemini_sdk::lowering::from_ir(&ir);
@@ -564,7 +576,7 @@ mod claude_to_gemini {
         }];
         let claude_msgs = vec![abp_claude_sdk::dialect::ClaudeMessage {
             role: "user".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
         }];
         let ir = abp_claude_sdk::lowering::to_ir(&claude_msgs, None);
         let gemini = abp_gemini_sdk::lowering::from_ir(&ir);
@@ -646,9 +658,9 @@ mod self_mapping {
 
         assert_eq!(back.len(), 2); // system skipped
         assert_eq!(back[0].role, "user");
-        assert_eq!(back[0].content, "Hello");
+        assert_eq!(back[0].content.text(), "Hello");
         assert_eq!(back[1].role, "assistant");
-        assert_eq!(back[1].content, "Hi!");
+        assert_eq!(back[1].content.text(), "Hi!");
     }
 
     #[test]
@@ -972,7 +984,11 @@ mod sampling_parameters {
             }],
             system: None,
             temperature: Some(0.3),
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };
@@ -1194,10 +1210,10 @@ mod multi_turn {
 
         let claude = abp_claude_sdk::lowering::from_ir(&ir);
         assert_eq!(claude.len(), 4); // system skipped
-        assert_eq!(claude[0].content, "Hi");
-        assert_eq!(claude[1].content, "Hello");
-        assert_eq!(claude[2].content, "What is 2+2?");
-        assert_eq!(claude[3].content, "4");
+        assert_eq!(claude[0].content.text(), "Hi");
+        assert_eq!(claude[1].content.text(), "Hello");
+        assert_eq!(claude[2].content.text(), "What is 2+2?");
+        assert_eq!(claude[3].content.text(), "4");
     }
 
     #[test]
@@ -1286,7 +1302,7 @@ mod content_blocks {
         assert_eq!(openai[0].content.as_deref(), Some("Hello world"));
 
         let claude = abp_claude_sdk::lowering::from_ir(&ir);
-        assert_eq!(claude[0].content, "Hello world");
+        assert_eq!(claude[0].content.text(), "Hello world");
 
         let gemini = abp_gemini_sdk::lowering::from_ir(&ir);
         match &gemini[0].parts[0] {
@@ -1306,8 +1322,7 @@ mod content_blocks {
         )]);
 
         let claude = abp_claude_sdk::lowering::from_ir(&ir);
-        let parsed: Vec<abp_claude_sdk::dialect::ClaudeContentBlock> =
-            serde_json::from_str(&claude[0].content).unwrap();
+        let parsed: Vec<abp_claude_sdk::dialect::ClaudeContentBlock> = claude[0].content.blocks();
         match &parsed[0] {
             abp_claude_sdk::dialect::ClaudeContentBlock::Image { source } => match source {
                 abp_claude_sdk::dialect::ClaudeImageSource::Base64 { media_type, data } => {
@@ -1424,8 +1439,7 @@ mod content_blocks {
         )]);
 
         let claude = abp_claude_sdk::lowering::from_ir(&ir);
-        let parsed: Vec<abp_claude_sdk::dialect::ClaudeContentBlock> =
-            serde_json::from_str(&claude[0].content).unwrap();
+        let parsed: Vec<abp_claude_sdk::dialect::ClaudeContentBlock> = claude[0].content.blocks();
         assert_eq!(parsed.len(), 2);
         match &parsed[0] {
             abp_claude_sdk::dialect::ClaudeContentBlock::Thinking { thinking, .. } => {
@@ -1662,8 +1676,8 @@ mod roundtrip_fidelity {
         let back = abp_claude_sdk::lowering::from_ir(&ir2);
 
         assert_eq!(back.len(), 2);
-        assert_eq!(back[0].content, "Question");
-        assert_eq!(back[1].content, "Answer");
+        assert_eq!(back[0].content.text(), "Question");
+        assert_eq!(back[1].content.text(), "Answer");
     }
 
     #[test]
@@ -1757,15 +1771,14 @@ mod roundtrip_fidelity {
         }];
         let claude_msgs = vec![abp_claude_sdk::dialect::ClaudeMessage {
             role: "user".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
         }];
         let ir = abp_claude_sdk::lowering::to_ir(&claude_msgs, None);
         let gemini = abp_gemini_sdk::lowering::from_ir(&ir);
         let ir2 = abp_gemini_sdk::lowering::to_ir(&gemini, None);
         let back = abp_claude_sdk::lowering::from_ir(&ir2);
 
-        let parsed: Vec<abp_claude_sdk::dialect::ClaudeContentBlock> =
-            serde_json::from_str(&back[0].content).unwrap();
+        let parsed: Vec<abp_claude_sdk::dialect::ClaudeContentBlock> = back[0].content.blocks();
         match &parsed[0] {
             abp_claude_sdk::dialect::ClaudeContentBlock::Image { source } => match source {
                 abp_claude_sdk::dialect::ClaudeImageSource::Base64 { media_type, data } => {

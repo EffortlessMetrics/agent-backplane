@@ -42,6 +42,24 @@ fn event_kinds(events: &[AgentEvent]) -> Vec<String> {
             AgentEventKind::CommandExecuted { command, .. } => {
                 format!("CommandExecuted({command})")
             }
+            AgentEventKind::SessionStarted { session_id } => {
+                format!("SessionStarted({session_id})")
+            }
+            AgentEventKind::SessionResumed { session_id, .. } => {
+                format!("SessionResumed({session_id})")
+            }
+            AgentEventKind::PermissionRequested { tool_name, .. } => {
+                format!("PermissionRequested({tool_name})")
+            }
+            AgentEventKind::PermissionResolved {
+                tool_name, granted, ..
+            } => format!("PermissionResolved({tool_name},granted={granted})"),
+            AgentEventKind::SubagentSpawned { agent_id, .. } => {
+                format!("SubagentSpawned({agent_id})")
+            }
+            AgentEventKind::SubagentCompleted {
+                agent_id, success, ..
+            } => format!("SubagentCompleted({agent_id},ok={success})"),
             AgentEventKind::Warning { message } => format!("Warning({message})"),
             AgentEventKind::Error { message, .. } => format!("Error({message})"),
         })

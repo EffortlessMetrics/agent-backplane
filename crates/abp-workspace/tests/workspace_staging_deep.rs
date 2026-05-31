@@ -38,6 +38,7 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 use tempfile::tempdir;
+use uselesskey::{Factory, RsaFactoryExt, RsaSpec, Seed};
 use walkdir::WalkDir;
 
 // ===========================================================================
@@ -91,6 +92,15 @@ fn git(path: &Path, args: &[&str]) -> Option<String> {
         .ok()
         .filter(|o| o.status.success())
         .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+}
+
+fn deterministic_private_key_pem(label: &str) -> String {
+    let seed = Seed::from_env_value("abp-workspace-tests").expect("valid uselesskey seed");
+    let factory = Factory::deterministic(seed);
+    factory
+        .rsa(label, RsaSpec::rs256())
+        .private_key_pkcs8_pem()
+        .to_string()
 }
 
 // ===========================================================================
@@ -1431,7 +1441,7 @@ fn deep_glob_exclude_deeply_nested_only() {
             .join("b")
             .join("secret")
             .join("key.pem"),
-        "private",
+        deterministic_private_key_pem("deep-glob-secret-key"),
     )
     .unwrap();
 

@@ -127,7 +127,7 @@ fn claude_user_text_roundtrip() {
     let msgs = vec![claude_msg("user", "Hello")];
     let conv = claude_lowering::to_ir(&msgs, None);
     let back = claude_lowering::from_ir(&conv);
-    assert_eq!(back[0].content, "Hello");
+    assert_eq!(back[0].content.text(), "Hello");
 }
 
 #[test]
@@ -136,7 +136,7 @@ fn claude_assistant_text_roundtrip() {
     let conv = claude_lowering::to_ir(&msgs, None);
     let back = claude_lowering::from_ir(&conv);
     assert_eq!(back[0].role, "assistant");
-    assert_eq!(back[0].content, "Response here");
+    assert_eq!(back[0].content.text(), "Response here");
 }
 
 #[test]
@@ -152,7 +152,7 @@ fn claude_tool_use_block_roundtrip() {
     )];
     let conv = claude_lowering::to_ir(&msgs, None);
     let back = claude_lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::ToolUse { id, name, input } => {
             assert_eq!(id, "tu_abc");
@@ -173,7 +173,7 @@ fn claude_tool_result_block_roundtrip() {
     let msgs = vec![claude_msg("user", &serde_json::to_string(&blocks).unwrap())];
     let conv = claude_lowering::to_ir(&msgs, None);
     let back = claude_lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::ToolResult {
             tool_use_id,
@@ -203,7 +203,7 @@ fn claude_thinking_block_roundtrip() {
         other => panic!("expected Thinking, got {other:?}"),
     }
     let back = claude_lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::Thinking { thinking, .. } => assert_eq!(thinking, "Let me think..."),
         other => panic!("expected Thinking, got {other:?}"),
@@ -587,7 +587,7 @@ fn claude_tool_result_error_flag() {
         other => panic!("expected ToolResult, got {other:?}"),
     }
     let back = claude_lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::ToolResult { is_error, .. } => assert_eq!(*is_error, Some(true)),
         other => panic!("expected ToolResult, got {other:?}"),
@@ -922,10 +922,10 @@ fn claude_multi_turn_order() {
     assert_eq!(conv.len(), 5); // system + 4 turns
     let back = claude_lowering::from_ir(&conv);
     assert_eq!(back.len(), 4); // system skipped
-    assert_eq!(back[0].content, "A");
-    assert_eq!(back[1].content, "B");
-    assert_eq!(back[2].content, "C");
-    assert_eq!(back[3].content, "D");
+    assert_eq!(back[0].content.text(), "A");
+    assert_eq!(back[1].content.text(), "B");
+    assert_eq!(back[2].content.text(), "C");
+    assert_eq!(back[3].content.text(), "D");
 }
 
 #[test]
@@ -994,7 +994,7 @@ fn claude_base64_image_roundtrip() {
         other => panic!("expected Image, got {other:?}"),
     }
     let back = claude_lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::Image {
             source: ClaudeImageSource::Base64 { media_type, data },
@@ -1496,7 +1496,7 @@ fn claude_large_text_roundtrip() {
     let conv = claude_lowering::to_ir(&msgs, None);
     assert_eq!(conv.messages[0].text_content().len(), 100_000);
     let back = claude_lowering::from_ir(&conv);
-    assert_eq!(back[0].content.len(), 100_000);
+    assert_eq!(back[0].content.text().len(), 100_000);
 }
 
 #[test]
@@ -1758,7 +1758,7 @@ fn claude_passthrough_fidelity_check() {
 fn claude_map_tool_result_helper() {
     let msg = claude_dialect::map_tool_result("tu_1", "output data", false);
     assert_eq!(msg.role, "user");
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msg.content).unwrap();
+    let blocks: Vec<ClaudeContentBlock> = msg.content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::ToolResult {
             tool_use_id,
@@ -1776,7 +1776,7 @@ fn claude_map_tool_result_helper() {
 #[test]
 fn claude_map_tool_result_error() {
     let msg = claude_dialect::map_tool_result("tu_err", "not found", true);
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msg.content).unwrap();
+    let blocks: Vec<ClaudeContentBlock> = msg.content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::ToolResult { is_error, .. } => {
             assert_eq!(*is_error, Some(true));

@@ -91,7 +91,7 @@ fn claude_text(role: &str, text: &str) -> ClaudeMessage {
 fn claude_blocks(role: &str, blocks: &[ClaudeContentBlock]) -> ClaudeMessage {
     ClaudeMessage {
         role: role.into(),
-        content: serde_json::to_string(blocks).unwrap(),
+        content: blocks.to_vec().into(),
     }
 }
 
@@ -114,7 +114,7 @@ fn openai_to_claude_simple_text() {
 
     assert_eq!(claude.len(), 1);
     assert_eq!(claude[0].role, "user");
-    assert_eq!(claude[0].content, "Hello world");
+    assert_eq!(claude[0].content.text(), "Hello world");
 }
 
 #[test]
@@ -132,7 +132,7 @@ fn openai_to_claude_system_message() {
     let claude = claude_ir::from_ir(&ir);
     assert_eq!(claude.len(), 1);
     assert_eq!(claude[0].role, "user");
-    assert_eq!(claude[0].content, "Hi");
+    assert_eq!(claude[0].content.text(), "Hi");
 }
 
 #[test]
@@ -147,7 +147,7 @@ fn openai_to_claude_tool_calls() {
 
     assert_eq!(claude.len(), 1);
     assert_eq!(claude[0].role, "assistant");
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&claude[0].content).unwrap();
+    let blocks: Vec<ClaudeContentBlock> = claude[0].content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::ToolUse { id, name, input } => {
             assert_eq!(id, "call_1");
@@ -172,11 +172,11 @@ fn openai_to_claude_multi_turn() {
     // System is skipped → 3 messages
     assert_eq!(claude.len(), 3);
     assert_eq!(claude[0].role, "user");
-    assert_eq!(claude[0].content, "What is Rust?");
+    assert_eq!(claude[0].content.text(), "What is Rust?");
     assert_eq!(claude[1].role, "assistant");
-    assert_eq!(claude[1].content, "A systems programming language.");
+    assert_eq!(claude[1].content.text(), "A systems programming language.");
     assert_eq!(claude[2].role, "user");
-    assert_eq!(claude[2].content, "Thanks!");
+    assert_eq!(claude[2].content.text(), "Thanks!");
 }
 
 #[test]
@@ -193,7 +193,7 @@ fn openai_to_claude_tool_result_mapping() {
     assert_eq!(claude.len(), 4);
     // Tool message becomes "user" in Claude
     assert_eq!(claude[2].role, "user");
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&claude[2].content).unwrap();
+    let blocks: Vec<ClaudeContentBlock> = claude[2].content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::ToolResult {
             tool_use_id,
@@ -222,7 +222,7 @@ fn openai_to_claude_missing_features_graceful() {
     assert_eq!(claude.len(), 1);
     assert_eq!(claude[0].role, "assistant");
     // Empty content blocks → empty text_content
-    assert_eq!(claude[0].content, "");
+    assert_eq!(claude[0].content.text(), "");
 }
 
 // =========================================================================
@@ -812,7 +812,7 @@ fn edge_message_with_only_tool_calls() {
 
     // Claude: should serialize as JSON blocks
     let claude = claude_ir::from_ir(&ir);
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&claude[0].content).unwrap();
+    let blocks: Vec<ClaudeContentBlock> = claude[0].content.blocks();
     assert_eq!(blocks.len(), 2);
 
     // Gemini: two FunctionCall parts
@@ -856,7 +856,7 @@ fn edge_mixed_content_block_types() {
 
     // Claude: structured blocks
     let claude = claude_ir::from_ir(&ir);
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&claude[0].content).unwrap();
+    let blocks: Vec<ClaudeContentBlock> = claude[0].content.blocks();
     assert_eq!(blocks.len(), 3);
 
     // Gemini: thinking becomes text part
@@ -1007,7 +1007,7 @@ fn gemini_to_claude_function_call_mapping() {
     let claude = claude_ir::from_ir(&ir);
 
     assert_eq!(claude[0].role, "assistant");
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&claude[0].content).unwrap();
+    let blocks: Vec<ClaudeContentBlock> = claude[0].content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::ToolUse { id, name, input } => {
             assert_eq!(id, "gemini_grep");

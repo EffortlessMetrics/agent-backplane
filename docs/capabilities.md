@@ -33,6 +33,10 @@ the minimum support level needed for each feature.
 | `StructuredOutputJsonSchema`    | `structured_output_json_schema`    | Constrain model output to a JSON Schema.                     |
 | `McpClient`                     | `mcp_client`                       | Connect to external MCP servers as a client.                 |
 | `McpServer`                     | `mcp_server`                       | Expose MCP server endpoints.                                 |
+| `Interrupt`                     | `interrupt`                        | Interrupt/cancel a running operation.                        |
+| `PermissionCallback`            | `permission_callback`              | Permission request/grant/deny callback support.              |
+| `Subagents`                     | `subagents`                        | Spawn and manage sub-agent processes.                        |
+| `CustomTools`                   | `custom_tools`                     | User-defined custom tools beyond built-in set.               |
 
 All variant names serialize as **snake_case** (via `#[serde(rename_all = "snake_case")]`).
 
@@ -68,32 +72,38 @@ this logic. Note that `Restricted` satisfies `Emulated` but **not** `Native`.
 The table below summarizes the capabilities reported by each sidecar host
 shipped in the `hosts/` directory.
 
-| Capability                   | Claude (sidecar) | Copilot         | Gemini          | Kimi            | Codex→Claude    |
-|------------------------------|:-----------------:|:---------------:|:---------------:|:---------------:|:---------------:|
-| `streaming`                  | Native            | Native          | Native          | Native          | Native          |
-| `tool_read`                  | Emulated          | Native          | Native          | Native          | Native          |
-| `tool_write`                 | Emulated          | Native          | Native          | Native          | Native          |
-| `tool_edit`                  | Emulated          | Native          | Native          | Native          | Native          |
-| `tool_bash`                  | Emulated          | Native          | Native          | Native          | Native          |
-| `tool_glob`                  | Emulated          | Native          | Native          | Native          | Native          |
-| `tool_grep`                  | Emulated          | Native          | Native          | Native          | Native          |
-| `tool_web_search`            | Emulated          | Native          | Native          | Native          | Native          |
-| `tool_web_fetch`             | Emulated          | Native          | Native          | Native          | Native          |
-| `tool_ask_user`              | —                 | Native          | Native          | Native          | —               |
-| `hooks_pre_tool_use`         | Native            | Emulated        | Emulated        | Emulated        | Native          |
-| `hooks_post_tool_use`        | Native            | Emulated        | Emulated        | Emulated        | Native          |
-| `session_resume`             | Emulated          | Native          | Native          | Native          | Emulated        |
-| `session_fork`               | —                 | Native          | Native          | Native          | —               |
-| `checkpointing`              | Emulated          | Emulated        | Emulated        | Emulated        | —               |
-| `structured_output_json_schema` | Emulated       | Native          | Emulated        | Emulated        | Native          |
-| `mcp_client`                 | Emulated          | Native          | Native          | Native          | —               |
-| `mcp_server`                 | —                 | Emulated        | Emulated        | Emulated        | —               |
+| Capability                   | Claude Agent TS V1 | Claude Agent Python | Copilot         | Gemini          | Kimi            | Codex→Claude    |
+|------------------------------|:------------------:|:-------------------:|:---------------:|:---------------:|:---------------:|:---------------:|
+| `streaming`                  | Native             | Native              | Native          | Native          | Native          | Native          |
+| `tool_read`                  | Emulated           | Emulated            | Native          | Native          | Native          | Native          |
+| `tool_write`                 | Emulated           | Emulated            | Native          | Native          | Native          | Native          |
+| `tool_edit`                  | Emulated           | Emulated            | Native          | Native          | Native          | Native          |
+| `tool_bash`                  | Emulated           | Emulated            | Native          | Native          | Native          | Native          |
+| `tool_glob`                  | Emulated           | Emulated            | Native          | Native          | Native          | Native          |
+| `tool_grep`                  | Emulated           | Emulated            | Native          | Native          | Native          | Native          |
+| `tool_web_search`            | Emulated           | Emulated            | Native          | Native          | Native          | Native          |
+| `tool_web_fetch`             | Emulated           | Emulated            | Native          | Native          | Native          | Native          |
+| `tool_ask_user`              | Native             | Native              | Native          | Native          | Native          | —               |
+| `hooks_pre_tool_use`         | Native             | Native              | Emulated        | Emulated        | Emulated        | Native          |
+| `hooks_post_tool_use`        | Native             | Native              | Emulated        | Emulated        | Emulated        | Native          |
+| `session_resume`             | Native             | Native              | Native          | Native          | Native          | Emulated        |
+| `session_fork`               | Emulated           | Emulated            | Native          | Native          | Native          | —               |
+| `checkpointing`              | Native             | Native              | Emulated        | Emulated        | Emulated        | —               |
+| `structured_output_json_schema` | Emulated        | Emulated            | Native          | Emulated        | Emulated        | Native          |
+| `mcp_client`                 | Native             | Native              | Native          | Native          | Native          | —               |
+| `mcp_server`                 | —                  | —                   | Emulated        | Emulated        | Emulated        | —               |
+| `interrupt`                  | Native             | Native              | —               | —               | —               | —               |
+| `permission_callback`        | Native             | Native              | —               | —               | —               | —               |
+| `subagents`                  | Native             | —                   | —               | —               | —               | —               |
+| `custom_tools`               | Native             | Native              | —               | —               | —               | —               |
 
 **Legend:** Native = first-class, Emulated = ABP translation layer, — = not advertised.
 
-> The Claude sidecar uses `defaultCapabilities()` which reports Emulated for
-> most tools because it delegates through a pluggable adapter module. The Codex
-> column reflects the Codex→Claude dialect mapping defined in
+> The Claude Agent TS V2 preview has the same capabilities as TS V1, with the addition
+> of `structured_output_json_schema: Native`. See the
+> [Claude Agent SDK Integration Guide](claude_agent_sdk_integration.md) for details.
+>
+> The Codex column reflects the Codex→Claude dialect mapping defined in
 > `hosts/codex/capabilities.js`.
 
 ---
@@ -218,6 +228,16 @@ let wo = WorkOrderBuilder::new("task")
 3. Regenerate JSON schemas: `cargo run -p xtask -- schema`.
 4. Add tests in `crates/abp-core/tests/capability_tests.rs`.
 5. Update the matrix table above.
+
+## ext Field Conventions
+
+The `ext` field on `AgentEvent` carries sidecar-specific metadata that is not part of
+the core capability model. See the
+[Claude Agent SDK Integration Guide](claude_agent_sdk_integration.md#12-ext-field-conventions)
+for the list of well-known ext keys emitted by Claude surfaces.
+
+Other sidecars may emit their own ext keys. Consumers should always treat ext
+as optional and handle missing keys gracefully.
 
 ---
 

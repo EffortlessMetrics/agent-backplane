@@ -432,7 +432,10 @@ pub fn default_emulation_strategy(cap: &Capability) -> EmulationStrategy {
         | Capability::ToolAskUser
         | Capability::HooksPreToolUse
         | Capability::HooksPostToolUse
-        | Capability::Checkpointing => EmulationStrategy::ClientSide,
+        | Capability::Checkpointing
+        | Capability::Interrupt
+        | Capability::PermissionCallback
+        | Capability::CustomTools => EmulationStrategy::ClientSide,
 
         // Server can provide degraded version
         Capability::FunctionCalling
@@ -443,7 +446,8 @@ pub fn default_emulation_strategy(cap: &Capability) -> EmulationStrategy {
         | Capability::SessionFork
         | Capability::McpClient
         | Capability::McpServer
-        | Capability::SystemMessage => EmulationStrategy::ServerFallback,
+        | Capability::SystemMessage
+        | Capability::Subagents => EmulationStrategy::ServerFallback,
 
         // Best-effort approximation
         Capability::Vision

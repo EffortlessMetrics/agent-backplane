@@ -318,6 +318,10 @@ mod claude {
             stop_sequences: Some(vec!["STOP".into()]),
             thinking: None,
             stream: Some(false),
+            top_p: None,
+            top_k: None,
+            tools: None,
+            tool_choice: None,
         };
         assert_eq!(req.model, "claude-sonnet-4-20250514");
         assert_eq!(req.max_tokens, 1024);
@@ -452,7 +456,11 @@ mod claude {
                 }],
                 system: None,
                 temperature: None,
+                top_p: None,
+                top_k: None,
                 stop_sequences: None,
+                tools: None,
+                tool_choice: None,
                 thinking: None,
                 stream: None,
             };

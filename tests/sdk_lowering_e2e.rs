@@ -100,7 +100,7 @@ fn claude_text(role: &str, text: &str) -> ClaudeMessage {
 fn claude_blocks(role: &str, blocks: Vec<ClaudeContentBlock>) -> ClaudeMessage {
     ClaudeMessage {
         role: role.into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }
 }
 
@@ -776,7 +776,7 @@ mod ir_to_claude {
             }],
         )]);
         let msgs = claude::from_ir(&conv);
-        let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msgs[0].content).unwrap();
+        let blocks: Vec<ClaudeContentBlock> = msgs[0].content.blocks();
         assert!(matches!(&blocks[0], ClaudeContentBlock::ToolUse { .. }));
     }
 
@@ -791,7 +791,7 @@ mod ir_to_claude {
             }],
         )]);
         let msgs = claude::from_ir(&conv);
-        let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msgs[0].content).unwrap();
+        let blocks: Vec<ClaudeContentBlock> = msgs[0].content.blocks();
         match &blocks[0] {
             ClaudeContentBlock::ToolResult {
                 tool_use_id,
@@ -812,7 +812,7 @@ mod ir_to_claude {
             vec![IrContentBlock::Thinking { text: "hmm".into() }],
         )]);
         let msgs = claude::from_ir(&conv);
-        let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msgs[0].content).unwrap();
+        let blocks: Vec<ClaudeContentBlock> = msgs[0].content.blocks();
         match &blocks[0] {
             ClaudeContentBlock::Thinking { thinking, .. } => assert_eq!(thinking, "hmm"),
             other => panic!("expected Thinking, got {other:?}"),
@@ -829,7 +829,7 @@ mod ir_to_claude {
             }],
         )]);
         let msgs = claude::from_ir(&conv);
-        let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msgs[0].content).unwrap();
+        let blocks: Vec<ClaudeContentBlock> = msgs[0].content.blocks();
         match &blocks[0] {
             ClaudeContentBlock::Image {
                 source: ClaudeImageSource::Base64 { media_type, data },
@@ -1211,9 +1211,9 @@ mod cross_sdk_roundtrip {
         let claude_msgs = claude::from_ir(&ir);
         assert_eq!(claude_msgs.len(), 2); // system skipped
         assert_eq!(claude_msgs[0].role, "user");
-        assert_eq!(claude_msgs[0].content, "Hello");
+        assert_eq!(claude_msgs[0].content.text(), "Hello");
         assert_eq!(claude_msgs[1].role, "assistant");
-        assert_eq!(claude_msgs[1].content, "Hi!");
+        assert_eq!(claude_msgs[1].content.text(), "Hi!");
     }
 
     #[test]
@@ -1365,8 +1365,7 @@ mod cross_sdk_roundtrip {
         };
         let ir = openai::to_ir(&[msg]);
         let claude_msgs = claude::from_ir(&ir);
-        let blocks: Vec<ClaudeContentBlock> =
-            serde_json::from_str(&claude_msgs[0].content).unwrap();
+        let blocks: Vec<ClaudeContentBlock> = claude_msgs[0].content.blocks();
         match &blocks[0] {
             ClaudeContentBlock::ToolUse { id, name, .. } => {
                 assert_eq!(id, "c1");
@@ -1456,8 +1455,7 @@ mod cross_sdk_roundtrip {
             }],
         }]);
         let claude_msgs = claude::from_ir(&ir);
-        let blocks: Vec<ClaudeContentBlock> =
-            serde_json::from_str(&claude_msgs[0].content).unwrap();
+        let blocks: Vec<ClaudeContentBlock> = claude_msgs[0].content.blocks();
         match &blocks[0] {
             ClaudeContentBlock::Thinking { thinking, .. } => {
                 assert_eq!(thinking, "reasoning...");
@@ -1498,8 +1496,7 @@ mod cross_sdk_roundtrip {
         };
         let ir = kimi::to_ir(&[msg]);
         let claude_msgs = claude::from_ir(&ir);
-        let blocks: Vec<ClaudeContentBlock> =
-            serde_json::from_str(&claude_msgs[0].content).unwrap();
+        let blocks: Vec<ClaudeContentBlock> = claude_msgs[0].content.blocks();
         match &blocks[0] {
             ClaudeContentBlock::ToolUse { id, name, .. } => {
                 assert_eq!(id, "c1");
@@ -1547,7 +1544,7 @@ mod fidelity_tracking {
             other => panic!("expected Thinking, got {other:?}"),
         }
         let back = claude::from_ir(&ir);
-        let back_blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+        let back_blocks: Vec<ClaudeContentBlock> = back[0].content.blocks();
         match &back_blocks[0] {
             ClaudeContentBlock::Thinking { signature, .. } => {
                 assert!(signature.is_none()); // signature lost
@@ -1660,7 +1657,7 @@ mod fidelity_tracking {
         let ir2 = copilot::to_ir(&copilot_msgs);
         let claude_back = claude::from_ir(&ir2);
         // Now it's plain text, not a structured thinking block
-        assert_eq!(claude_back[0].content, "reasoning");
+        assert_eq!(claude_back[0].content.text(), "reasoning");
     }
 
     #[test]
@@ -1949,7 +1946,7 @@ mod edge_cases {
         let ir = claude::to_ir(&[claude_blocks("assistant", blocks)], None);
         assert_eq!(ir.messages[0].content.len(), 2);
         let back = claude::from_ir(&ir);
-        let back_blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+        let back_blocks: Vec<ClaudeContentBlock> = back[0].content.blocks();
         assert_eq!(back_blocks.len(), 2);
     }
 
@@ -1980,7 +1977,7 @@ mod edge_cases {
             other => panic!("expected ToolResult, got {other:?}"),
         }
         let back = claude::from_ir(&ir);
-        let back_blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+        let back_blocks: Vec<ClaudeContentBlock> = back[0].content.blocks();
         match &back_blocks[0] {
             ClaudeContentBlock::ToolResult { is_error, .. } => {
                 assert_eq!(*is_error, Some(true));

@@ -149,6 +149,33 @@ pub struct Message {
     pub content: Vec<ContentBlock>,
 }
 
+/// Tool choice configuration for the Messages API.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ToolChoice {
+    /// Model decides whether to use a tool.
+    Auto {},
+    /// Model must use *some* tool.
+    Any {},
+    /// Model must use the named tool.
+    Tool {
+        /// Required tool name.
+        name: String,
+    },
+}
+
+/// A tool definition for the Messages API.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ToolDef {
+    /// Tool name.
+    pub name: String,
+    /// Human-readable description.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// JSON Schema describing the tool's input parameters.
+    pub input_schema: serde_json::Value,
+}
+
 /// Request to the messages API — mirrors `POST /v1/messages`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageRequest {
@@ -161,12 +188,24 @@ pub struct MessageRequest {
     /// Optional system prompt.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub system: Option<String>,
-    /// Optional temperature.
+    /// Sampling temperature (0.0–1.0).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f64>,
-    /// Optional stop sequences.
+    /// Nucleus-sampling probability mass.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top_p: Option<f64>,
+    /// Top-K sampling parameter.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub top_k: Option<u32>,
+    /// Custom stop sequences.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stop_sequences: Option<Vec<String>>,
+    /// Tool definitions available to the model.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tools: Option<Vec<ToolDef>>,
+    /// How the model should choose which tool to use.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_choice: Option<ToolChoice>,
     /// Extended thinking configuration.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thinking: Option<ThinkingConfig>,
@@ -409,19 +448,18 @@ pub fn message_to_ir(msg: &Message) -> ClaudeMessage {
 
     if has_structured || msg.content.len() > 1 {
         let blocks: Vec<ClaudeContentBlock> = msg.content.iter().map(content_block_to_ir).collect();
-        let content = serde_json::to_string(&blocks).unwrap_or_default();
         ClaudeMessage {
             role: role.to_string(),
-            content,
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
         }
     } else {
         let text = msg.content.first().map_or(String::new(), |b| match b {
             ContentBlock::Text { text } => text.clone(),
-            _ => serde_json::to_string(&[content_block_to_ir(b)]).unwrap_or_default(),
+            _ => String::new(),
         });
         ClaudeMessage {
             role: role.to_string(),
-            content: text,
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(text),
         }
     }
 }
@@ -430,12 +468,40 @@ pub fn message_to_ir(msg: &Message) -> ClaudeMessage {
 #[must_use]
 pub fn request_to_claude(req: &MessageRequest) -> abp_claude_sdk::dialect::ClaudeRequest {
     let messages: Vec<ClaudeMessage> = req.messages.iter().map(message_to_ir).collect();
+
+    // Map shim tool definitions to dialect tool definitions.
+    let tools = req.tools.as_ref().map(|t| {
+        t.iter()
+            .map(|tool| abp_claude_sdk::dialect::ClaudeToolDef {
+                name: tool.name.clone(),
+                description: tool.description.clone().unwrap_or_default(),
+                input_schema: tool.input_schema.clone(),
+            })
+            .collect()
+    });
+
+    // Map shim tool choice to dialect tool choice.
+    let tool_choice = req.tool_choice.as_ref().map(|tc| match tc {
+        ToolChoice::Auto {} => abp_claude_sdk::dialect::ClaudeToolChoice::Auto {},
+        ToolChoice::Any {} => abp_claude_sdk::dialect::ClaudeToolChoice::Any {},
+        ToolChoice::Tool { name } => {
+            abp_claude_sdk::dialect::ClaudeToolChoice::Tool { name: name.clone() }
+        }
+    });
+
     abp_claude_sdk::dialect::ClaudeRequest {
         model: req.model.clone(),
         max_tokens: req.max_tokens,
         system: req.system.clone(),
         messages,
         thinking: req.thinking.clone(),
+        temperature: req.temperature,
+        top_p: req.top_p,
+        top_k: req.top_k,
+        stream: req.stream,
+        stop_sequences: req.stop_sequences.clone(),
+        tools,
+        tool_choice,
     }
 }
 
@@ -779,8 +845,8 @@ impl AnthropicClient {
                     claude_req
                         .messages
                         .last()
-                        .map(|m| m.content.as_str())
-                        .unwrap_or("(empty)")
+                        .map(|m| m.content.text())
+                        .unwrap_or_default()
                 ),
             }],
             stop_reason: Some("end_turn".to_string()),
@@ -826,8 +892,8 @@ impl AnthropicClient {
             claude_req
                 .messages
                 .last()
-                .map(|m| m.content.as_str())
-                .unwrap_or("(empty)")
+                .map(|m| m.content.text())
+                .unwrap_or_default()
         );
 
         let model = claude_req.model.clone();
@@ -954,7 +1020,11 @@ mod tests {
             }],
             system: None,
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         }
@@ -1137,8 +1207,8 @@ mod tests {
         };
         let claude_msg = message_to_ir(&msg);
         assert_eq!(claude_msg.role, "user");
-        // Structured content is serialized as JSON
-        let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&claude_msg.content).unwrap();
+        // Structured content produces a Blocks variant
+        let blocks = claude_msg.content.blocks();
         assert_eq!(blocks.len(), 2);
     }
 
@@ -1157,7 +1227,11 @@ mod tests {
             }],
             system: Some("You are a helpful assistant.".to_string()),
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };
@@ -1184,7 +1258,11 @@ mod tests {
             }],
             system: Some("Be concise.".to_string()),
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };
@@ -1220,7 +1298,11 @@ mod tests {
             ],
             system: None,
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };
@@ -1257,7 +1339,11 @@ mod tests {
             ],
             system: None,
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };
@@ -1280,7 +1366,11 @@ mod tests {
             }],
             system: None,
             temperature: Some(0.7),
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };
@@ -1302,7 +1392,11 @@ mod tests {
             }],
             system: None,
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: Some(vec!["STOP".to_string(), "END".to_string()]),
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };
@@ -1325,7 +1419,11 @@ mod tests {
             }],
             system: None,
             temperature: Some(0.5),
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };
@@ -1456,7 +1554,11 @@ mod tests {
             }],
             system: None,
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };
@@ -1482,7 +1584,11 @@ mod tests {
             messages: vec![],
             system: None,
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };
@@ -1499,7 +1605,11 @@ mod tests {
             messages: vec![],
             system: None,
             temperature: None,
+            top_p: None,
+            top_k: None,
             stop_sequences: None,
+            tools: None,
+            tool_choice: None,
             thinking: None,
             stream: None,
         };
@@ -1567,6 +1677,10 @@ mod tests {
             stop_sequences: Some(vec!["END".into()]),
             thinking: Some(ThinkingConfig::new(2048)),
             stream: Some(true),
+            top_p: None,
+            top_k: None,
+            tools: None,
+            tool_choice: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         let back: MessageRequest = serde_json::from_str(&json).unwrap();

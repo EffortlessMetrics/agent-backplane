@@ -211,6 +211,26 @@ expression: schema
       "description": "Image generation (e.g. DALL-E).",
       "type": "string",
       "const": "image_generation"
+    },
+    {
+      "description": "Interrupt or cancel a running operation.",
+      "type": "string",
+      "const": "interrupt"
+    },
+    {
+      "description": "Permission request/grant/deny callback support.",
+      "type": "string",
+      "const": "permission_callback"
+    },
+    {
+      "description": "Spawn and manage sub-agent processes.",
+      "type": "string",
+      "const": "subagents"
+    },
+    {
+      "description": "User-defined custom tools beyond the built-in set.",
+      "type": "string",
+      "const": "custom_tools"
     }
   ]
 }

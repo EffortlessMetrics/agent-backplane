@@ -222,6 +222,94 @@ pub fn run_completed_event(message: impl Into<String>) -> AgentEvent {
     }
 }
 
+/// Create a session-started event.
+#[must_use]
+pub fn session_started_event(session_id: impl Into<String>) -> AgentEvent {
+    AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::SessionStarted {
+            session_id: session_id.into(),
+        },
+        ext: None,
+    }
+}
+
+/// Create a session-resumed event.
+#[must_use]
+pub fn session_resumed_event(
+    session_id: impl Into<String>,
+    resumed_from: impl Into<String>,
+) -> AgentEvent {
+    AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::SessionResumed {
+            session_id: session_id.into(),
+            resumed_from: resumed_from.into(),
+        },
+        ext: None,
+    }
+}
+
+/// Create a permission-requested event.
+#[must_use]
+pub fn permission_requested_event(
+    tool_name: impl Into<String>,
+    input: serde_json::Value,
+) -> AgentEvent {
+    AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::PermissionRequested {
+            tool_name: tool_name.into(),
+            input,
+        },
+        ext: None,
+    }
+}
+
+/// Create a permission-resolved event.
+#[must_use]
+pub fn permission_resolved_event(
+    tool_name: impl Into<String>,
+    granted: bool,
+    reason: Option<String>,
+) -> AgentEvent {
+    AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::PermissionResolved {
+            tool_name: tool_name.into(),
+            granted,
+            reason,
+        },
+        ext: None,
+    }
+}
+
+/// Create a subagent-spawned event.
+#[must_use]
+pub fn subagent_spawned_event(agent_id: impl Into<String>, task: impl Into<String>) -> AgentEvent {
+    AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::SubagentSpawned {
+            agent_id: agent_id.into(),
+            task: task.into(),
+        },
+        ext: None,
+    }
+}
+
+/// Create a subagent-completed event.
+#[must_use]
+pub fn subagent_completed_event(agent_id: impl Into<String>, success: bool) -> AgentEvent {
+    AgentEvent {
+        ts: Utc::now(),
+        kind: AgentEventKind::SubagentCompleted {
+            agent_id: agent_id.into(),
+            success,
+        },
+        ext: None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

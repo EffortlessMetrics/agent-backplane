@@ -67,7 +67,7 @@ fn openai_to_claude_user_text() {
     let claude = claude_ir::from_ir(&ir);
     assert_eq!(claude.len(), 1);
     assert_eq!(claude[0].role, "user");
-    assert_eq!(claude[0].content, "Hello Claude!");
+    assert_eq!(claude[0].content.text(), "Hello Claude!");
 }
 
 #[test]
@@ -81,7 +81,7 @@ fn openai_to_claude_assistant_text() {
     let ir = openai_ir::to_ir(&openai);
     let claude = claude_ir::from_ir(&ir);
     assert_eq!(claude[0].role, "assistant");
-    assert_eq!(claude[0].content, "Sure thing!");
+    assert_eq!(claude[0].content.text(), "Sure thing!");
 }
 
 #[test]
@@ -126,8 +126,7 @@ fn openai_to_claude_tool_call() {
     }];
     let ir = openai_ir::to_ir(&openai);
     let claude = claude_ir::from_ir(&ir);
-    let blocks: Vec<ClaudeContentBlock> =
-        serde_json::from_str(&claude[0].content).expect("should parse as blocks");
+    let blocks: Vec<ClaudeContentBlock> = claude[0].content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::ToolUse { id, name, input } => {
             assert_eq!(id, "call_abc");
@@ -150,8 +149,7 @@ fn openai_to_claude_tool_result() {
     let claude = claude_ir::from_ir(&ir);
     // Claude maps tool results as user role with structured blocks
     assert_eq!(claude[0].role, "user");
-    let blocks: Vec<ClaudeContentBlock> =
-        serde_json::from_str(&claude[0].content).expect("should parse");
+    let blocks: Vec<ClaudeContentBlock> = claude[0].content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::ToolResult {
             tool_use_id,
@@ -197,10 +195,10 @@ fn openai_to_claude_multi_turn() {
     let claude = claude_ir::from_ir(&ir);
     assert_eq!(claude.len(), 3); // system skipped
     assert_eq!(claude[0].role, "user");
-    assert_eq!(claude[0].content, "Hi");
+    assert_eq!(claude[0].content.text(), "Hi");
     assert_eq!(claude[1].role, "assistant");
     assert_eq!(claude[2].role, "user");
-    assert_eq!(claude[2].content, "Bye");
+    assert_eq!(claude[2].content.text(), "Bye");
 }
 
 #[test]
@@ -220,8 +218,7 @@ fn openai_to_claude_text_and_tool_call() {
     }];
     let ir = openai_ir::to_ir(&openai);
     let claude = claude_ir::from_ir(&ir);
-    let blocks: Vec<ClaudeContentBlock> =
-        serde_json::from_str(&claude[0].content).expect("should parse");
+    let blocks: Vec<ClaudeContentBlock> = claude[0].content.blocks();
     assert_eq!(blocks.len(), 2);
     assert!(matches!(&blocks[0], ClaudeContentBlock::Text { .. }));
     assert!(matches!(&blocks[1], ClaudeContentBlock::ToolUse { .. }));
@@ -266,7 +263,7 @@ fn claude_to_openai_tool_use() {
     }];
     let claude = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let ir = claude_ir::to_ir(&claude, None);
     let openai = openai_ir::from_ir(&ir);
@@ -285,7 +282,7 @@ fn claude_to_openai_tool_result() {
     }];
     let claude = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let ir = claude_ir::to_ir(&claude, None);
     let openai = openai_ir::from_ir(&ir);
@@ -307,7 +304,7 @@ fn claude_to_openai_thinking_becomes_text() {
     ];
     let claude = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let ir = claude_ir::to_ir(&claude, None);
     let openai = openai_ir::from_ir(&ir);
@@ -331,7 +328,7 @@ fn claude_to_openai_content_blocks_mixed() {
     ];
     let claude = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let ir = claude_ir::to_ir(&claude, None);
     let openai = openai_ir::from_ir(&ir);
@@ -349,7 +346,7 @@ fn claude_to_openai_image_block_lossy() {
     }];
     let claude = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let ir = claude_ir::to_ir(&claude, None);
     let openai = openai_ir::from_ir(&ir);
@@ -643,7 +640,7 @@ fn claude_to_gemini_tool_use() {
     }];
     let claude = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let ir = claude_ir::to_ir(&claude, None);
     let gemini = gemini_ir::from_ir(&ir);
@@ -665,7 +662,7 @@ fn claude_to_gemini_tool_result() {
     }];
     let claude = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let ir = claude_ir::to_ir(&claude, None);
     let gemini = gemini_ir::from_ir(&ir);
@@ -686,7 +683,7 @@ fn claude_to_gemini_thinking_becomes_text() {
     }];
     let claude = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let ir = claude_ir::to_ir(&claude, None);
     let gemini = gemini_ir::from_ir(&ir);
@@ -707,7 +704,7 @@ fn claude_to_gemini_image_block() {
     }];
     let claude = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let ir = claude_ir::to_ir(&claude, None);
     let gemini = gemini_ir::from_ir(&ir);
@@ -733,7 +730,7 @@ fn gemini_to_claude_user_text() {
     let ir = gemini_ir::to_ir(&gemini, None);
     let claude = claude_ir::from_ir(&ir);
     assert_eq!(claude[0].role, "user");
-    assert_eq!(claude[0].content, "Hi Claude!");
+    assert_eq!(claude[0].content.text(), "Hi Claude!");
 }
 
 #[test]
@@ -758,8 +755,7 @@ fn gemini_to_claude_function_call() {
     }];
     let ir = gemini_ir::to_ir(&gemini, None);
     let claude = claude_ir::from_ir(&ir);
-    let blocks: Vec<ClaudeContentBlock> =
-        serde_json::from_str(&claude[0].content).expect("should parse");
+    let blocks: Vec<ClaudeContentBlock> = claude[0].content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::ToolUse { name, input, .. } => {
             assert_eq!(name, "grep");
@@ -780,8 +776,7 @@ fn gemini_to_claude_function_response() {
     }];
     let ir = gemini_ir::to_ir(&gemini, None);
     let claude = claude_ir::from_ir(&ir);
-    let blocks: Vec<ClaudeContentBlock> =
-        serde_json::from_str(&claude[0].content).expect("should parse");
+    let blocks: Vec<ClaudeContentBlock> = claude[0].content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::ToolResult {
             tool_use_id,
@@ -806,8 +801,7 @@ fn gemini_to_claude_inline_data_becomes_image() {
     }];
     let ir = gemini_ir::to_ir(&gemini, None);
     let claude = claude_ir::from_ir(&ir);
-    let blocks: Vec<ClaudeContentBlock> =
-        serde_json::from_str(&claude[0].content).expect("should parse");
+    let blocks: Vec<ClaudeContentBlock> = claude[0].content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::Image {
             source: ClaudeImageSource::Base64 { media_type, data },
@@ -1349,11 +1343,15 @@ fn claude_tool_flow_through_openai() {
         },
         ClaudeMessage {
             role: "assistant".into(),
-            content: serde_json::to_string(&tool_use).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(
+                serde_json::to_string(&tool_use).unwrap(),
+            ),
         },
         ClaudeMessage {
             role: "user".into(),
-            content: serde_json::to_string(&tool_result).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(
+                serde_json::to_string(&tool_result).unwrap(),
+            ),
         },
         ClaudeMessage {
             role: "assistant".into(),
@@ -1581,7 +1579,7 @@ fn thinking_block_claude_to_all() {
     }];
     let claude = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let ir = claude_ir::to_ir(&claude, None);
 
@@ -1630,7 +1628,7 @@ fn image_block_claude_to_gemini() {
     }];
     let claude = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let ir = claude_ir::to_ir(&claude, None);
     let gemini = gemini_ir::from_ir(&ir);
@@ -1654,8 +1652,7 @@ fn image_block_gemini_to_claude() {
     }];
     let ir = gemini_ir::to_ir(&gemini, None);
     let claude = claude_ir::from_ir(&ir);
-    let blocks: Vec<ClaudeContentBlock> =
-        serde_json::from_str(&claude[0].content).expect("should parse");
+    let blocks: Vec<ClaudeContentBlock> = claude[0].content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::Image {
             source: ClaudeImageSource::Base64 { media_type, data },
@@ -1679,7 +1676,7 @@ fn claude_thinking_signature_lost_in_roundtrip() {
     }];
     let claude_in = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let ir = claude_ir::to_ir(&claude_in, None);
     // Through any other SDK and back, signature is lost
@@ -1687,7 +1684,7 @@ fn claude_thinking_signature_lost_in_roundtrip() {
     let ir2 = openai_ir::to_ir(&openai);
     let claude_out = claude_ir::from_ir(&ir2);
     // The thinking text is preserved but signature is lost
-    assert!(claude_out[0].content.contains("hmm"));
+    assert!(claude_out[0].content.text().contains("hmm"));
 }
 
 #[test]
@@ -1705,8 +1702,7 @@ fn codex_reasoning_through_claude() {
     let ir = codex_ir::to_ir(&items);
     let claude = claude_ir::from_ir(&ir);
     // Claude represents thinking as a block
-    let blocks: Vec<ClaudeContentBlock> =
-        serde_json::from_str(&claude[0].content).expect("should parse");
+    let blocks: Vec<ClaudeContentBlock> = claude[0].content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::Thinking { thinking, .. } => {
             assert!(thinking.contains("Step 1"));
@@ -1763,7 +1759,7 @@ fn claude_image_url_lossy_through_openai() {
     }];
     let claude = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let ir = claude_ir::to_ir(&claude, None);
     // URL images become text placeholders in IR
@@ -1803,7 +1799,7 @@ fn claude_tool_result_error_flag_through_openai() {
     }];
     let claude_in = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let ir = claude_ir::to_ir(&claude_in, None);
     // Claude tool result is user-role in IR; through OpenAI it becomes a plain user
@@ -1906,7 +1902,7 @@ fn openai_none_content_through_claude() {
     }];
     let ir = openai_ir::to_ir(&openai);
     let claude = claude_ir::from_ir(&ir);
-    assert_eq!(claude[0].content, "");
+    assert_eq!(claude[0].content.text(), "");
 }
 
 #[test]
@@ -1939,8 +1935,7 @@ fn malformed_tool_args_openai_through_claude() {
     }];
     let ir = openai_ir::to_ir(&openai);
     let claude = claude_ir::from_ir(&ir);
-    let blocks: Vec<ClaudeContentBlock> =
-        serde_json::from_str(&claude[0].content).expect("should parse");
+    let blocks: Vec<ClaudeContentBlock> = claude[0].content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::ToolUse { input, .. } => {
             // Malformed args preserved as JSON string value
@@ -1995,7 +1990,7 @@ fn claude_to_codex_to_openai_tool_call() {
     }];
     let claude = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let ir1 = claude_ir::to_ir(&claude, None);
     let codex = codex_ir::from_ir(&ir1);
@@ -2025,8 +2020,7 @@ fn kimi_to_gemini_to_claude_tool_call() {
     let gemini = gemini_ir::from_ir(&ir1);
     let ir2 = gemini_ir::to_ir(&gemini, None);
     let claude = claude_ir::from_ir(&ir2);
-    let blocks: Vec<ClaudeContentBlock> =
-        serde_json::from_str(&claude[0].content).expect("should parse");
+    let blocks: Vec<ClaudeContentBlock> = claude[0].content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::ToolUse { name, .. } => {
             assert_eq!(name, "web_search");
@@ -2066,8 +2060,7 @@ fn multiple_tool_calls_openai_to_claude() {
     }];
     let ir = openai_ir::to_ir(&openai);
     let claude = claude_ir::from_ir(&ir);
-    let blocks: Vec<ClaudeContentBlock> =
-        serde_json::from_str(&claude[0].content).expect("should parse");
+    let blocks: Vec<ClaudeContentBlock> = claude[0].content.blocks();
     assert_eq!(blocks.len(), 2);
 }
 
@@ -2187,7 +2180,9 @@ fn ir_accessors_after_claude_lowering() {
         },
         ClaudeMessage {
             role: "assistant".into(),
-            content: serde_json::to_string(&tool_use).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(
+                serde_json::to_string(&tool_use).unwrap(),
+            ),
         },
     ];
     let ir = claude_ir::to_ir(&claude, Some("prompt"));
@@ -2231,7 +2226,7 @@ fn copilot_to_claude_user_text() {
     let ir = copilot_ir::to_ir(&copilot);
     let claude = claude_ir::from_ir(&ir);
     assert_eq!(claude[0].role, "user");
-    assert_eq!(claude[0].content, "Hello Claude!");
+    assert_eq!(claude[0].content.text(), "Hello Claude!");
 }
 
 #[test]
@@ -2317,7 +2312,7 @@ fn codex_to_claude_assistant_text() {
     let ir = codex_ir::to_ir(&items);
     let claude = claude_ir::from_ir(&ir);
     assert_eq!(claude[0].role, "assistant");
-    assert_eq!(claude[0].content, "Hi Claude!");
+    assert_eq!(claude[0].content.text(), "Hi Claude!");
 }
 
 #[test]
@@ -2330,8 +2325,7 @@ fn codex_to_claude_function_call() {
     }];
     let ir = codex_ir::to_ir(&items);
     let claude = claude_ir::from_ir(&ir);
-    let blocks: Vec<ClaudeContentBlock> =
-        serde_json::from_str(&claude[0].content).expect("should parse");
+    let blocks: Vec<ClaudeContentBlock> = claude[0].content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::ToolUse { id, name, .. } => {
             assert_eq!(id, "fc_1");
@@ -2396,7 +2390,7 @@ fn kimi_to_claude_user_text() {
     let ir = kimi_ir::to_ir(&kimi);
     let claude = claude_ir::from_ir(&ir);
     assert_eq!(claude[0].role, "user");
-    assert_eq!(claude[0].content, "Hello Claude!");
+    assert_eq!(claude[0].content.text(), "Hello Claude!");
 }
 
 #[test]
@@ -2439,8 +2433,7 @@ fn kimi_to_claude_tool_call() {
     }];
     let ir = kimi_ir::to_ir(&kimi);
     let claude = claude_ir::from_ir(&ir);
-    let blocks: Vec<ClaudeContentBlock> =
-        serde_json::from_str(&claude[0].content).expect("should parse");
+    let blocks: Vec<ClaudeContentBlock> = claude[0].content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::ToolUse { id, name, .. } => {
             assert_eq!(id, "k_call");
@@ -2597,7 +2590,7 @@ fn ir_text_to_all_sdks() {
     assert_eq!(openai[0].content.as_deref(), Some("Hello"));
 
     let claude = claude_ir::from_ir(&ir);
-    assert_eq!(claude[0].content, "Hello");
+    assert_eq!(claude[0].content.text(), "Hello");
 
     let gemini = gemini_ir::from_ir(&ir);
     match &gemini[0].parts[0] {
@@ -2630,7 +2623,7 @@ fn ir_tool_use_to_all_sdks() {
 
     // Claude
     let claude = claude_ir::from_ir(&ir);
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&claude[0].content).unwrap();
+    let blocks: Vec<ClaudeContentBlock> = claude[0].content.blocks();
     assert!(matches!(&blocks[0], ClaudeContentBlock::ToolUse { .. }));
 
     // Gemini

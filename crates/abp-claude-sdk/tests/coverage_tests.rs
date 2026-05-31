@@ -53,6 +53,13 @@ fn claude_request_serde_roundtrip() {
             content: "Hello".into(),
         }],
         thinking: None,
+        temperature: None,
+        top_p: None,
+        top_k: None,
+        stream: None,
+        stop_sequences: None,
+        tools: None,
+        tool_choice: None,
     };
     let json = serde_json::to_string(&req).unwrap();
     let parsed: ClaudeRequest = serde_json::from_str(&json).unwrap();
@@ -73,6 +80,13 @@ fn claude_request_with_thinking_config_roundtrip() {
             content: "Think carefully".into(),
         }],
         thinking: Some(ThinkingConfig::new(8192)),
+        temperature: None,
+        top_p: None,
+        top_k: None,
+        stream: None,
+        stop_sequences: None,
+        tools: None,
+        tool_choice: None,
     };
     let json = serde_json::to_string(&req).unwrap();
     assert!(json.contains("thinking"));
@@ -89,6 +103,13 @@ fn claude_request_omits_thinking_when_none() {
         system: None,
         messages: vec![],
         thinking: None,
+        temperature: None,
+        top_p: None,
+        top_k: None,
+        stream: None,
+        stop_sequences: None,
+        tools: None,
+        tool_choice: None,
     };
     let json = serde_json::to_string(&req).unwrap();
     assert!(!json.contains("thinking"));
@@ -107,7 +128,7 @@ fn claude_message_serde_roundtrip() {
     let json = serde_json::to_string(&msg).unwrap();
     let parsed: ClaudeMessage = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed.role, "assistant");
-    assert_eq!(parsed.content, "Here is my answer.");
+    assert_eq!(parsed.content.text(), "Here is my answer.");
 }
 
 // ---------------------------------------------------------------------------
@@ -229,8 +250,8 @@ fn map_work_order_with_snippets_includes_names_and_content() {
     let wo = WorkOrderBuilder::new("Review code").context(ctx).build();
     let cfg = ClaudeConfig::default();
     let req = map_work_order(&wo, &cfg);
-    assert!(req.messages[0].content.contains("src/main.rs"));
-    assert!(req.messages[0].content.contains("fn main() {}"));
+    assert!(req.messages[0].content.text().contains("src/main.rs"));
+    assert!(req.messages[0].content.text().contains("fn main() {}"));
 }
 
 // ---------------------------------------------------------------------------

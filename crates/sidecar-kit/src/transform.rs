@@ -36,6 +36,12 @@ fn kind_name(kind: &AgentEventKind) -> &'static str {
         AgentEventKind::ToolResult { .. } => "tool_result",
         AgentEventKind::FileChanged { .. } => "file_changed",
         AgentEventKind::CommandExecuted { .. } => "command_executed",
+        AgentEventKind::SessionStarted { .. } => "session_started",
+        AgentEventKind::SessionResumed { .. } => "session_resumed",
+        AgentEventKind::PermissionRequested { .. } => "permission_requested",
+        AgentEventKind::PermissionResolved { .. } => "permission_resolved",
+        AgentEventKind::SubagentSpawned { .. } => "subagent_spawned",
+        AgentEventKind::SubagentCompleted { .. } => "subagent_completed",
         AgentEventKind::Warning { .. } => "warning",
         AgentEventKind::Error { .. } => "error",
     }
@@ -158,6 +164,14 @@ impl EventTransformer for RedactTransformer {
                 message: self.redact_string(&message),
                 error_code,
             },
+            // Session/permission/subagent events: pass through without redaction
+            // (they contain tool names and IDs, not user content)
+            AgentEventKind::SessionStarted { .. }
+            | AgentEventKind::SessionResumed { .. }
+            | AgentEventKind::PermissionRequested { .. }
+            | AgentEventKind::PermissionResolved { .. }
+            | AgentEventKind::SubagentSpawned { .. }
+            | AgentEventKind::SubagentCompleted { .. } => event.kind,
         };
         Some(event)
     }

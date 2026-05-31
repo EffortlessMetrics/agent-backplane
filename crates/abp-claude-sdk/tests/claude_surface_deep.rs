@@ -1253,7 +1253,7 @@ fn dialect_map_work_order_uses_task() {
     let config = ClaudeConfig::default();
     let req = dialect::map_work_order(&wo, &config);
     assert_eq!(req.messages.len(), 1);
-    assert!(req.messages[0].content.contains("Fix the bug"));
+    assert!(req.messages[0].content.text().contains("Fix the bug"));
 }
 
 #[test]
@@ -1447,7 +1447,7 @@ fn lowering_user_text_roundtrip() {
     let conv = lowering::to_ir(&msgs, None);
     let back = lowering::from_ir(&conv);
     assert_eq!(back.len(), 1);
-    assert_eq!(back[0].content, "Hello");
+    assert_eq!(back[0].content.text(), "Hello");
 }
 
 #[test]
@@ -1499,7 +1499,7 @@ fn capability_manifest_has_tool_support() {
 fn map_tool_result_success() {
     let msg = dialect::map_tool_result("toolu_01", "file contents here", false);
     assert_eq!(msg.role, "user");
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msg.content).unwrap();
+    let blocks = msg.content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::ToolResult {
             tool_use_id,
@@ -1517,7 +1517,7 @@ fn map_tool_result_success() {
 #[test]
 fn map_tool_result_error() {
     let msg = dialect::map_tool_result("toolu_02", "permission denied", true);
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msg.content).unwrap();
+    let blocks = msg.content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::ToolResult { is_error, .. } => {
             assert_eq!(*is_error, Some(true));

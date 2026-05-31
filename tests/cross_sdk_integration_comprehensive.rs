@@ -154,7 +154,11 @@ fn make_claude_request() -> abp_shim_claude::MessageRequest {
         }],
         system: Some("You are helpful.".into()),
         temperature: Some(0.7),
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     }

@@ -781,6 +781,12 @@ fn type_tag(kind: &AgentEventKind) -> &'static str {
         AgentEventKind::CommandExecuted { .. } => "command_executed",
         AgentEventKind::Warning { .. } => "warning",
         AgentEventKind::Error { .. } => "error",
+        AgentEventKind::SessionStarted { .. } => "session_started",
+        AgentEventKind::SessionResumed { .. } => "session_resumed",
+        AgentEventKind::PermissionRequested { .. } => "permission_requested",
+        AgentEventKind::PermissionResolved { .. } => "permission_resolved",
+        AgentEventKind::SubagentSpawned { .. } => "subagent_spawned",
+        AgentEventKind::SubagentCompleted { .. } => "subagent_completed",
     }
 }
 

@@ -29,7 +29,7 @@ fn claude_messages(n: usize) -> Vec<ClaudeMessage> {
     (0..n)
         .map(|i| ClaudeMessage {
             role: if i % 2 == 0 { "user" } else { "assistant" }.into(),
-            content: format!("Message {i}"),
+            content: format!("Message {i}").into(),
         })
         .collect()
 }

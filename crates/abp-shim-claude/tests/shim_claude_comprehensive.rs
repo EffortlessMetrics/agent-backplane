@@ -65,6 +65,10 @@ fn simple_request(text: &str) -> MessageRequest {
         stop_sequences: None,
         thinking: None,
         stream: None,
+        top_p: None,
+        top_k: None,
+        tools: None,
+        tool_choice: None,
     }
 }
 
@@ -284,7 +288,7 @@ fn request_basic_message_to_claude_request() {
     assert_eq!(claude_req.max_tokens, 4096);
     assert_eq!(claude_req.messages.len(), 1);
     assert_eq!(claude_req.messages[0].role, "user");
-    assert_eq!(claude_req.messages[0].content, "Fix the bug");
+    assert_eq!(claude_req.messages[0].content.text(), "Fix the bug");
 }
 
 #[test]
@@ -405,8 +409,8 @@ fn request_with_tool_use_blocks_structured_content() {
     };
     let claude_msg = message_to_ir(&msg);
     assert_eq!(claude_msg.role, "assistant");
-    // Multiple blocks with tool_use → serialized as JSON
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&claude_msg.content).unwrap();
+    // Multiple blocks with tool_use → stored as Blocks variant
+    let blocks = claude_msg.content.blocks();
     assert_eq!(blocks.len(), 2);
     assert!(matches!(&blocks[0], ClaudeContentBlock::Text { .. }));
     assert!(matches!(&blocks[1], ClaudeContentBlock::ToolUse { .. }));
@@ -424,7 +428,7 @@ fn request_tool_result_message_converts() {
     };
     let claude_msg = message_to_ir(&msg);
     assert_eq!(claude_msg.role, "user");
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&claude_msg.content).unwrap();
+    let blocks = claude_msg.content.blocks();
     assert!(matches!(&blocks[0], ClaudeContentBlock::ToolResult { .. }));
 }
 
@@ -437,7 +441,7 @@ fn request_single_text_block_stays_plain_string() {
         }],
     };
     let claude_msg = message_to_ir(&msg);
-    assert_eq!(claude_msg.content, "Hello world");
+    assert_eq!(claude_msg.content.text(), "Hello world");
 }
 
 #[test]
@@ -448,7 +452,7 @@ fn request_empty_content_message() {
     };
     let claude_msg = message_to_ir(&msg);
     assert_eq!(claude_msg.role, "user");
-    assert!(claude_msg.content.is_empty());
+    assert!(claude_msg.content.text().is_empty());
 }
 
 #[test]
@@ -487,6 +491,10 @@ fn request_serde_roundtrip_full() {
         stop_sequences: Some(vec!["END".into()]),
         thinking: Some(ThinkingConfig::new(1024)),
         stream: Some(true),
+        top_p: None,
+        top_k: None,
+        tools: None,
+        tool_choice: None,
     };
     let json = serde_json::to_string(&req).unwrap();
     let back: MessageRequest = serde_json::from_str(&json).unwrap();
@@ -1117,11 +1125,11 @@ fn edge_empty_content_blocks_in_message() {
     let ir = message_to_ir(&msg);
     assert_eq!(ir.role, "user");
     // Empty content → empty string
-    assert!(ir.content.is_empty());
+    assert!(ir.content.text().is_empty());
 }
 
 #[test]
-fn edge_multiple_text_blocks_serialized_as_json() {
+fn edge_multiple_text_blocks_stored_as_blocks() {
     let msg = Message {
         role: Role::User,
         content: vec![
@@ -1134,8 +1142,8 @@ fn edge_multiple_text_blocks_serialized_as_json() {
         ],
     };
     let ir = message_to_ir(&msg);
-    // >1 block → serialized as JSON array
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&ir.content).unwrap();
+    // >1 block → stored as Blocks variant
+    let blocks = ir.content.blocks();
     assert_eq!(blocks.len(), 2);
 }
 
@@ -1673,7 +1681,7 @@ fn stream_claude_event_to_shim_signature_delta() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
-fn message_to_ir_single_tool_use_serialized_as_json() {
+fn message_to_ir_single_tool_use_stored_as_blocks() {
     let msg = Message {
         role: Role::Assistant,
         content: vec![ContentBlock::ToolUse {
@@ -1684,13 +1692,13 @@ fn message_to_ir_single_tool_use_serialized_as_json() {
     };
     let ir = message_to_ir(&msg);
     assert_eq!(ir.role, "assistant");
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&ir.content).unwrap();
+    let blocks = ir.content.blocks();
     assert_eq!(blocks.len(), 1);
     assert!(matches!(&blocks[0], ClaudeContentBlock::ToolUse { name, .. } if name == "grep"));
 }
 
 #[test]
-fn message_to_ir_image_only_serialized_as_json() {
+fn message_to_ir_image_only_stored_as_blocks() {
     let msg = Message {
         role: Role::User,
         content: vec![ContentBlock::Image {
@@ -1700,7 +1708,7 @@ fn message_to_ir_image_only_serialized_as_json() {
         }],
     };
     let ir = message_to_ir(&msg);
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&ir.content).unwrap();
+    let blocks = ir.content.blocks();
     assert_eq!(blocks.len(), 1);
     assert!(matches!(&blocks[0], ClaudeContentBlock::Image { .. }));
 }
@@ -1722,7 +1730,7 @@ fn message_to_ir_mixed_text_and_image() {
         ],
     };
     let ir = message_to_ir(&msg);
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&ir.content).unwrap();
+    let blocks = ir.content.blocks();
     assert_eq!(blocks.len(), 2);
 }
 

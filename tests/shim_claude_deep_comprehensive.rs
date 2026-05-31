@@ -66,7 +66,11 @@ fn simple_request(text: &str) -> MessageRequest {
         }],
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     }
@@ -146,6 +150,10 @@ fn request_all_fields_present_in_json() {
         stop_sequences: Some(vec!["END".into()]),
         thinking: Some(ThinkingConfig::new(2048)),
         stream: Some(true),
+        top_p: None,
+        top_k: None,
+        tools: None,
+        tool_choice: None,
     };
     let v = serde_json::to_value(&req).unwrap();
     assert_eq!(v["model"], "claude-sonnet-4-20250514");
@@ -191,6 +199,10 @@ fn request_multiple_stop_sequences() {
         stop_sequences: Some(vec!["A".into(), "B".into(), "C".into()]),
         thinking: None,
         stream: None,
+        top_p: None,
+        top_k: None,
+        tools: None,
+        tool_choice: None,
     };
     let v = serde_json::to_value(&req).unwrap();
     assert_eq!(v["stop_sequences"].as_array().unwrap().len(), 3);
@@ -681,7 +693,11 @@ fn work_order_task_from_last_text_message() {
         ],
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     };
@@ -704,7 +720,11 @@ fn work_order_fallback_when_no_text_in_last_message() {
         }],
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     };
@@ -760,7 +780,11 @@ fn work_order_from_empty_messages_still_works() {
         messages: vec![],
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     };
@@ -969,7 +993,7 @@ fn message_to_ir_simple_user_text() {
     };
     let claude_msg = message_to_ir(&msg);
     assert_eq!(claude_msg.role, "user");
-    assert_eq!(claude_msg.content, "hello");
+    assert_eq!(claude_msg.content.text(), "hello");
 }
 
 #[test]
@@ -982,7 +1006,7 @@ fn message_to_ir_simple_assistant_text() {
     };
     let claude_msg = message_to_ir(&msg);
     assert_eq!(claude_msg.role, "assistant");
-    assert_eq!(claude_msg.content, "Sure!");
+    assert_eq!(claude_msg.content.text(), "Sure!");
 }
 
 #[test]
@@ -993,7 +1017,7 @@ fn message_to_ir_empty_content_list() {
     };
     let claude_msg = message_to_ir(&msg);
     assert_eq!(claude_msg.role, "user");
-    assert!(claude_msg.content.is_empty());
+    assert!(claude_msg.content.text().is_empty());
 }
 
 #[test]
@@ -1013,7 +1037,7 @@ fn message_to_ir_structured_content_serialized_as_json() {
         ],
     };
     let claude_msg = message_to_ir(&msg);
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&claude_msg.content).unwrap();
+    let blocks: Vec<ClaudeContentBlock> = claude_msg.content.blocks();
     assert_eq!(blocks.len(), 2);
 }
 
@@ -1028,7 +1052,7 @@ fn message_to_ir_tool_result_is_structured() {
         }],
     };
     let claude_msg = message_to_ir(&msg);
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&claude_msg.content).unwrap();
+    let blocks: Vec<ClaudeContentBlock> = claude_msg.content.blocks();
     assert_eq!(blocks.len(), 1);
 }
 
@@ -1046,7 +1070,7 @@ fn lowering_to_ir_user_text_roundtrip() {
     let back = lowering::from_ir(&conv);
     assert_eq!(back.len(), 1);
     assert_eq!(back[0].role, "user");
-    assert_eq!(back[0].content, "Hello");
+    assert_eq!(back[0].content.text(), "Hello");
 }
 
 #[test]
@@ -1059,7 +1083,7 @@ fn lowering_to_ir_assistant_text_roundtrip() {
     assert_eq!(conv.messages[0].role, IrRole::Assistant);
     let back = lowering::from_ir(&conv);
     assert_eq!(back[0].role, "assistant");
-    assert_eq!(back[0].content, "OK");
+    assert_eq!(back[0].content.text(), "OK");
 }
 
 #[test]
@@ -1116,7 +1140,7 @@ fn lowering_tool_use_to_ir_and_back() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = lowering::to_ir(&msgs, None);
     match &conv.messages[0].content[0] {
@@ -1128,7 +1152,7 @@ fn lowering_tool_use_to_ir_and_back() {
     }
 
     let back = lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     assert!(matches!(&parsed[0], ClaudeContentBlock::ToolUse { .. }));
 }
 
@@ -1141,7 +1165,7 @@ fn lowering_tool_result_roundtrip() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = lowering::to_ir(&msgs, None);
     match &conv.messages[0].content[0] {
@@ -1149,7 +1173,7 @@ fn lowering_tool_result_roundtrip() {
         other => panic!("expected ToolResult, got {other:?}"),
     }
     let back = lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::ToolResult { is_error, .. } => {
             assert_eq!(*is_error, Some(true));
@@ -1166,7 +1190,7 @@ fn lowering_thinking_block_roundtrip() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = lowering::to_ir(&msgs, None);
     assert!(matches!(
@@ -1185,7 +1209,7 @@ fn lowering_image_base64_to_ir() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = lowering::to_ir(&msgs, None);
     assert!(matches!(
@@ -1203,7 +1227,7 @@ fn lowering_image_url_becomes_text() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = lowering::to_ir(&msgs, None);
     match &conv.messages[0].content[0] {
@@ -1361,7 +1385,11 @@ async fn create_empty_messages_returns_invalid_request() {
         messages: vec![],
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     };
@@ -1378,7 +1406,11 @@ async fn create_stream_empty_messages_returns_invalid_request() {
         messages: vec![],
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     };
@@ -1660,7 +1692,7 @@ fn tool_def_canonical_to_claude_and_back() {
 fn map_tool_result_success() {
     let msg = dialect::map_tool_result("tu_1", "output data", false);
     assert_eq!(msg.role, "user");
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msg.content).unwrap();
+    let blocks: Vec<ClaudeContentBlock> = msg.content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::ToolResult {
             tool_use_id,
@@ -1678,7 +1710,7 @@ fn map_tool_result_success() {
 #[test]
 fn map_tool_result_error() {
     let msg = dialect::map_tool_result("tu_err", "ENOENT", true);
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msg.content).unwrap();
+    let blocks: Vec<ClaudeContentBlock> = msg.content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::ToolResult { is_error, .. } => {
             assert_eq!(*is_error, Some(true));
@@ -1755,7 +1787,11 @@ fn multi_turn_request_to_claude() {
         ],
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     };
@@ -1804,7 +1840,11 @@ fn multi_turn_with_tool_cycle() {
         messages: msgs,
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     };
@@ -1832,9 +1872,9 @@ fn multi_turn_lowering_roundtrip() {
     assert_eq!(conv.len(), 4); // system + 3 messages
     let back = lowering::from_ir(&conv);
     assert_eq!(back.len(), 3); // system skipped
-    assert_eq!(back[0].content, "Q1");
-    assert_eq!(back[1].content, "A1");
-    assert_eq!(back[2].content, "Q2");
+    assert_eq!(back[0].content.text(), "Q1");
+    assert_eq!(back[1].content.text(), "A1");
+    assert_eq!(back[2].content.text(), "Q2");
 }
 
 #[tokio::test]
@@ -1863,7 +1903,11 @@ async fn multi_turn_client_roundtrip() {
         ],
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     };
@@ -2528,7 +2572,7 @@ fn dialect_map_work_order_basic() {
     let req = dialect::map_work_order(&wo, &cfg);
     assert_eq!(req.messages.len(), 1);
     assert_eq!(req.messages[0].role, "user");
-    assert!(req.messages[0].content.contains("Refactor auth"));
+    assert!(req.messages[0].content.text().contains("Refactor auth"));
 }
 
 #[test]
@@ -2816,7 +2860,11 @@ fn many_messages_conversion() {
         messages,
         system: None,
         temperature: None,
+        top_p: None,
+        top_k: None,
         stop_sequences: None,
+        tools: None,
+        tool_choice: None,
         thinking: None,
         stream: None,
     };

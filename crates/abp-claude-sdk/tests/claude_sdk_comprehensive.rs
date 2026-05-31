@@ -9,9 +9,9 @@ use std::collections::BTreeMap;
 
 use abp_claude_sdk::dialect::{
     self, CanonicalToolDef, ClaudeApiError, ClaudeCacheControl, ClaudeConfig, ClaudeContentBlock,
-    ClaudeImageSource, ClaudeMessage, ClaudeMessageDelta, ClaudeRequest, ClaudeResponse,
-    ClaudeStopReason, ClaudeStreamDelta, ClaudeStreamEvent, ClaudeSystemBlock, ClaudeToolDef,
-    ClaudeUsage, ThinkingConfig,
+    ClaudeImageSource, ClaudeMessage, ClaudeMessageContent, ClaudeMessageDelta, ClaudeRequest,
+    ClaudeResponse, ClaudeStopReason, ClaudeStreamDelta, ClaudeStreamEvent, ClaudeSystemBlock,
+    ClaudeToolDef, ClaudeUsage, ThinkingConfig,
 };
 use abp_claude_sdk::lowering;
 use abp_claude_sdk::messages::{
@@ -141,11 +141,11 @@ fn capability_manifest_mcp_server_unsupported() {
 }
 
 #[test]
-fn capability_manifest_checkpointing_emulated() {
+fn capability_manifest_checkpointing_native() {
     let m = dialect::capability_manifest();
     assert!(matches!(
         m.get(&Capability::Checkpointing),
-        Some(SupportLevel::Emulated)
+        Some(SupportLevel::Native)
     ));
 }
 
@@ -624,6 +624,13 @@ fn claude_request_serde_roundtrip() {
             content: "Hello".into(),
         }],
         thinking: None,
+        temperature: None,
+        top_p: None,
+        top_k: None,
+        stream: None,
+        stop_sequences: None,
+        tools: None,
+        tool_choice: None,
     };
     let json = serde_json::to_string(&req).unwrap();
     let parsed: ClaudeRequest = serde_json::from_str(&json).unwrap();
@@ -640,6 +647,13 @@ fn claude_request_with_thinking() {
         system: None,
         messages: vec![],
         thinking: Some(ThinkingConfig::new(10000)),
+        temperature: None,
+        top_p: None,
+        top_k: None,
+        stream: None,
+        stop_sequences: None,
+        tools: None,
+        tool_choice: None,
     };
     let json = serde_json::to_string(&req).unwrap();
     assert!(json.contains("thinking"));
@@ -656,7 +670,7 @@ fn claude_message_serde_roundtrip() {
     let json = serde_json::to_string(&msg).unwrap();
     let parsed: ClaudeMessage = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed.role, "assistant");
-    assert_eq!(parsed.content, "Sure!");
+    assert_eq!(parsed.content.text(), "Sure!");
 }
 
 // ===========================================================================
@@ -968,7 +982,12 @@ fn map_work_order_basic() {
     let req = dialect::map_work_order(&wo, &cfg);
     assert_eq!(req.messages.len(), 1);
     assert_eq!(req.messages[0].role, "user");
-    assert!(req.messages[0].content.contains("Implement feature X"));
+    assert!(
+        req.messages[0]
+            .content
+            .text()
+            .contains("Implement feature X")
+    );
     assert_eq!(req.model, cfg.model);
     assert_eq!(req.max_tokens, cfg.max_tokens);
 }
@@ -1302,7 +1321,7 @@ fn map_stream_event_text_content_block_start_produces_empty() {
 fn map_tool_result_success() {
     let msg = dialect::map_tool_result("tu_1", "output data", false);
     assert_eq!(msg.role, "user");
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msg.content).unwrap();
+    let blocks = msg.content.blocks();
     assert_eq!(blocks.len(), 1);
     match &blocks[0] {
         ClaudeContentBlock::ToolResult {
@@ -1321,7 +1340,7 @@ fn map_tool_result_success() {
 #[test]
 fn map_tool_result_error() {
     let msg = dialect::map_tool_result("tu_err", "not found", true);
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msg.content).unwrap();
+    let blocks = msg.content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::ToolResult { is_error, .. } => {
             assert_eq!(*is_error, Some(true));
@@ -1333,7 +1352,7 @@ fn map_tool_result_error() {
 #[test]
 fn map_tool_result_empty_output() {
     let msg = dialect::map_tool_result("tu_empty", "", false);
-    let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msg.content).unwrap();
+    let blocks = msg.content.blocks();
     match &blocks[0] {
         ClaudeContentBlock::ToolResult { content, .. } => {
             assert_eq!(content.as_deref(), Some(""));
@@ -1994,9 +2013,9 @@ fn lowering_roundtrip_text_messages() {
     let back = lowering::from_ir(&conv);
     assert_eq!(back.len(), 2);
     assert_eq!(back[0].role, "user");
-    assert_eq!(back[0].content, "Hello");
+    assert_eq!(back[0].content.text(), "Hello");
     assert_eq!(back[1].role, "assistant");
-    assert_eq!(back[1].content, "Hi!");
+    assert_eq!(back[1].content.text(), "Hi!");
 }
 
 #[test]
@@ -2016,7 +2035,7 @@ fn lowering_tool_use_to_ir_and_back() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = lowering::to_ir(&msgs, None);
     assert!(matches!(
@@ -2024,7 +2043,7 @@ fn lowering_tool_use_to_ir_and_back() {
         IrContentBlock::ToolUse { name, .. } if name == "bash"
     ));
     let back = lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed = back[0].content.blocks();
     assert!(matches!(
         &parsed[0],
         ClaudeContentBlock::ToolUse { name, .. } if name == "bash"
@@ -2040,7 +2059,7 @@ fn lowering_tool_result_to_ir_and_back() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = lowering::to_ir(&msgs, None);
     assert!(matches!(
@@ -2057,7 +2076,7 @@ fn lowering_thinking_block_to_ir() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "assistant".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = lowering::to_ir(&msgs, None);
     assert!(matches!(
@@ -2076,7 +2095,7 @@ fn lowering_image_base64_to_ir() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = lowering::to_ir(&msgs, None);
     assert!(matches!(
@@ -2094,7 +2113,7 @@ fn lowering_image_url_to_ir_as_text() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = lowering::to_ir(&msgs, None);
     match &conv.messages[0].content[0] {
@@ -2203,11 +2222,11 @@ fn content_block_tool_use_complex_input() {
 fn claude_message_empty_content() {
     let msg = ClaudeMessage {
         role: "user".into(),
-        content: String::new(),
+        content: ClaudeMessageContent::Text(String::new()),
     };
     let json = serde_json::to_string(&msg).unwrap();
     let parsed: ClaudeMessage = serde_json::from_str(&json).unwrap();
-    assert_eq!(parsed.content, "");
+    assert_eq!(parsed.content.text(), "");
 }
 
 #[test]
@@ -2256,8 +2275,8 @@ fn map_work_order_with_snippets() {
     let wo = WorkOrderBuilder::new("Summarize docs").context(ctx).build();
     let cfg = ClaudeConfig::default();
     let req = dialect::map_work_order(&wo, &cfg);
-    assert!(req.messages[0].content.contains("readme"));
-    assert!(req.messages[0].content.contains("# Project"));
+    assert!(req.messages[0].content.text().contains("readme"));
+    assert!(req.messages[0].content.text().contains("# Project"));
 }
 
 #[test]
@@ -2293,7 +2312,7 @@ fn lowering_tool_result_no_content_roundtrip() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = lowering::to_ir(&msgs, None);
     match &conv.messages[0].content[0] {
@@ -2301,7 +2320,7 @@ fn lowering_tool_result_no_content_roundtrip() {
         other => panic!("expected ToolResult, got {other:?}"),
     }
     let back = lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::ToolResult { content, .. } => assert!(content.is_none()),
         other => panic!("expected ToolResult, got {other:?}"),
@@ -2317,11 +2336,11 @@ fn lowering_tool_result_error_flag_roundtrip() {
     }];
     let msgs = vec![ClaudeMessage {
         role: "user".into(),
-        content: serde_json::to_string(&blocks).unwrap(),
+        content: ClaudeMessageContent::Blocks(blocks),
     }];
     let conv = lowering::to_ir(&msgs, None);
     let back = lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::ToolResult { is_error, .. } => assert_eq!(*is_error, Some(true)),
         other => panic!("expected ToolResult, got {other:?}"),

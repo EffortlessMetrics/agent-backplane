@@ -36,9 +36,9 @@
 
 use abp_claude_sdk::dialect::{
     self, CanonicalToolDef, ClaudeApiError, ClaudeCacheControl, ClaudeConfig, ClaudeContentBlock,
-    ClaudeImageSource, ClaudeMessage, ClaudeMessageDelta, ClaudeRequest, ClaudeResponse,
-    ClaudeStopReason, ClaudeStreamDelta, ClaudeStreamEvent, ClaudeSystemBlock, ClaudeToolDef,
-    ClaudeUsage, ThinkingConfig,
+    ClaudeImageSource, ClaudeMessage, ClaudeMessageContent, ClaudeMessageDelta, ClaudeRequest,
+    ClaudeResponse, ClaudeStopReason, ClaudeStreamDelta, ClaudeStreamEvent, ClaudeSystemBlock,
+    ClaudeToolDef, ClaudeUsage, ThinkingConfig,
 };
 use abp_claude_sdk::lowering;
 use abp_core::ir::{IrContentBlock, IrConversation, IrMessage, IrRole};
@@ -59,7 +59,7 @@ fn claude_msg(role: &str, content: &str) -> ClaudeMessage {
 fn claude_blocks_msg(role: &str, blocks: &[ClaudeContentBlock]) -> ClaudeMessage {
     ClaudeMessage {
         role: role.into(),
-        content: serde_json::to_string(blocks).unwrap(),
+        content: ClaudeMessageContent::Blocks(blocks.to_vec()),
     }
 }
 
@@ -138,7 +138,12 @@ fn request_from_work_order_basic() {
     let req = dialect::map_work_order(&wo, &cfg);
     assert_eq!(req.messages.len(), 1);
     assert_eq!(req.messages[0].role, "user");
-    assert!(req.messages[0].content.contains("Summarize this code"));
+    assert!(
+        req.messages[0]
+            .content
+            .text()
+            .contains("Summarize this code")
+    );
     assert_eq!(req.model, cfg.model);
     assert_eq!(req.max_tokens, cfg.max_tokens);
 }
@@ -214,6 +219,13 @@ fn request_serde_roundtrip() {
         system: Some("system".into()),
         messages: vec![claude_msg("user", "hi")],
         thinking: Some(ThinkingConfig::new(5000)),
+        temperature: None,
+        top_p: None,
+        top_k: None,
+        stream: None,
+        stop_sequences: None,
+        tools: None,
+        tool_choice: None,
     };
     let json = serde_json::to_string(&req).unwrap();
     let back: ClaudeRequest = serde_json::from_str(&json).unwrap();
@@ -574,7 +586,7 @@ fn tool_use_block_from_ir() {
     );
     let conv = IrConversation::from_messages(vec![ir_msg]);
     let back = lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::ToolUse { id, name, .. } => {
             assert_eq!(id, "tu_99");
@@ -598,7 +610,7 @@ fn tool_use_with_complex_input() {
     let msgs = vec![claude_blocks_msg("assistant", &blocks)];
     let conv = lowering::to_ir(&msgs, None);
     let back = lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::ToolUse { input, .. } => {
             assert_eq!(input["path"], "src/main.rs");
@@ -705,7 +717,7 @@ fn tool_result_roundtrip_preserves_error() {
     let msgs = vec![claude_blocks_msg("user", &blocks)];
     let conv = lowering::to_ir(&msgs, None);
     let back = lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::ToolResult {
             is_error,
@@ -732,7 +744,7 @@ fn tool_result_from_ir_no_content_becomes_none() {
     );
     let conv = IrConversation::from_messages(vec![ir_msg]);
     let back = lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::ToolResult {
             content, is_error, ..
@@ -748,7 +760,7 @@ fn tool_result_from_ir_no_content_becomes_none() {
 fn map_tool_result_helper_success() {
     let msg = dialect::map_tool_result("tu_s", "output text", false);
     assert_eq!(msg.role, "user");
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&msg.content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = msg.content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::ToolResult {
             tool_use_id,
@@ -766,7 +778,7 @@ fn map_tool_result_helper_success() {
 #[test]
 fn map_tool_result_helper_error() {
     let msg = dialect::map_tool_result("tu_e", "failed", true);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&msg.content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = msg.content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::ToolResult { is_error, .. } => {
             assert_eq!(*is_error, Some(true));
@@ -878,7 +890,7 @@ fn lower_invalid_json_treated_as_plain_text() {
 fn lift_text_message() {
     let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::User, "question")]);
     let back = lowering::from_ir(&conv);
-    assert_eq!(back[0].content, "question");
+    assert_eq!(back[0].content.text(), "question");
 }
 
 #[test]
@@ -886,7 +898,7 @@ fn lift_assistant_text() {
     let conv = IrConversation::from_messages(vec![IrMessage::text(IrRole::Assistant, "answer")]);
     let back = lowering::from_ir(&conv);
     assert_eq!(back[0].role, "assistant");
-    assert_eq!(back[0].content, "answer");
+    assert_eq!(back[0].content.text(), "answer");
 }
 
 #[test]
@@ -901,7 +913,7 @@ fn lift_tool_use_produces_json() {
     );
     let conv = IrConversation::from_messages(vec![ir_msg]);
     let back = lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     assert_eq!(parsed.len(), 1);
     assert!(matches!(&parsed[0], ClaudeContentBlock::ToolUse { .. }));
 }
@@ -916,7 +928,7 @@ fn lift_thinking_produces_json() {
     );
     let conv = IrConversation::from_messages(vec![ir_msg]);
     let back = lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::Thinking {
             thinking,
@@ -940,7 +952,7 @@ fn lift_image_produces_json() {
     );
     let conv = IrConversation::from_messages(vec![ir_msg]);
     let back = lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::Image {
             source: ClaudeImageSource::Base64 { media_type, data },
@@ -976,7 +988,7 @@ fn roundtrip_user_text() {
     let back = lowering::from_ir(&conv);
     assert_eq!(back.len(), 1);
     assert_eq!(back[0].role, "user");
-    assert_eq!(back[0].content, "Hello world");
+    assert_eq!(back[0].content.text(), "Hello world");
 }
 
 #[test]
@@ -985,7 +997,7 @@ fn roundtrip_assistant_text() {
     let conv = lowering::to_ir(&msgs, None);
     let back = lowering::from_ir(&conv);
     assert_eq!(back[0].role, "assistant");
-    assert_eq!(back[0].content, "I'll help you");
+    assert_eq!(back[0].content.text(), "I'll help you");
 }
 
 #[test]
@@ -998,7 +1010,7 @@ fn roundtrip_tool_use() {
     let msgs = vec![claude_blocks_msg("assistant", &blocks)];
     let conv = lowering::to_ir(&msgs, None);
     let back = lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::ToolUse { id, name, input } => {
             assert_eq!(id, "tu_rt");
@@ -1019,7 +1031,7 @@ fn roundtrip_tool_result_with_content() {
     let msgs = vec![claude_blocks_msg("user", &blocks)];
     let conv = lowering::to_ir(&msgs, None);
     let back = lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::ToolResult {
             tool_use_id,
@@ -1043,7 +1055,7 @@ fn roundtrip_thinking_block() {
     let msgs = vec![claude_blocks_msg("assistant", &blocks)];
     let conv = lowering::to_ir(&msgs, None);
     let back = lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::Thinking { thinking, .. } => {
             assert_eq!(thinking, "Let me reason step by step");
@@ -1063,7 +1075,7 @@ fn roundtrip_image_base64() {
     let msgs = vec![claude_blocks_msg("user", &blocks)];
     let conv = lowering::to_ir(&msgs, None);
     let back = lowering::from_ir(&conv);
-    let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+    let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
     match &parsed[0] {
         ClaudeContentBlock::Image {
             source: ClaudeImageSource::Base64 { media_type, data },
@@ -1087,13 +1099,13 @@ fn roundtrip_multi_turn_conversation() {
     let back = lowering::from_ir(&conv);
     assert_eq!(back.len(), 4);
     assert_eq!(back[0].role, "user");
-    assert_eq!(back[0].content, "Hello");
+    assert_eq!(back[0].content.text(), "Hello");
     assert_eq!(back[1].role, "assistant");
-    assert_eq!(back[1].content, "Hi there");
+    assert_eq!(back[1].content.text(), "Hi there");
     assert_eq!(back[2].role, "user");
-    assert_eq!(back[2].content, "Do something");
+    assert_eq!(back[2].content.text(), "Do something");
     assert_eq!(back[3].role, "assistant");
-    assert_eq!(back[3].content, "Done");
+    assert_eq!(back[3].content.text(), "Done");
 }
 
 #[test]
@@ -1118,8 +1130,8 @@ fn roundtrip_tool_call_then_result_conversation() {
     assert_eq!(conv.len(), 4);
     let back = lowering::from_ir(&conv);
     assert_eq!(back.len(), 4);
-    assert_eq!(back[0].content, "Find tests");
-    assert_eq!(back[3].content, "I found 3 matches.");
+    assert_eq!(back[0].content.text(), "Find tests");
+    assert_eq!(back[3].content.text(), "I found 3 matches.");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1688,7 +1700,7 @@ fn unicode_content_roundtrip() {
     let msgs = vec![claude_msg("user", "こんにちは 🌍 émojis 中文")];
     let conv = lowering::to_ir(&msgs, None);
     let back = lowering::from_ir(&conv);
-    assert_eq!(back[0].content, "こんにちは 🌍 émojis 中文");
+    assert_eq!(back[0].content.text(), "こんにちは 🌍 émojis 中文");
 }
 
 #[test]
@@ -1696,7 +1708,7 @@ fn newlines_preserved() {
     let msgs = vec![claude_msg("user", "line1\nline2\nline3")];
     let conv = lowering::to_ir(&msgs, None);
     let back = lowering::from_ir(&conv);
-    assert_eq!(back[0].content, "line1\nline2\nline3");
+    assert_eq!(back[0].content.text(), "line1\nline2\nline3");
 }
 
 #[test]
@@ -2206,9 +2218,9 @@ fn work_order_with_snippets_appended() {
         .build();
     let cfg = ClaudeConfig::default();
     let req = dialect::map_work_order(&wo, &cfg);
-    assert!(req.messages[0].content.contains("Review this code"));
-    assert!(req.messages[0].content.contains("main.rs"));
-    assert!(req.messages[0].content.contains("fn main() {}"));
+    assert!(req.messages[0].content.text().contains("Review this code"));
+    assert!(req.messages[0].content.text().contains("main.rs"));
+    assert!(req.messages[0].content.text().contains("fn main() {}"));
 }
 
 #[test]
@@ -2230,6 +2242,6 @@ fn work_order_with_multiple_snippets() {
     let wo = WorkOrderBuilder::new("Analyze").context(ctx).build();
     let cfg = ClaudeConfig::default();
     let req = dialect::map_work_order(&wo, &cfg);
-    assert!(req.messages[0].content.contains("a.rs"));
-    assert!(req.messages[0].content.contains("b.rs"));
+    assert!(req.messages[0].content.text().contains("a.rs"));
+    assert!(req.messages[0].content.text().contains("b.rs"));
 }

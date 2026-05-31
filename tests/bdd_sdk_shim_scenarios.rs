@@ -445,7 +445,7 @@ mod tests {
         ];
         let msgs = vec![ClaudeMessage {
             role: "assistant".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
         }];
 
         let conv = to_ir(&msgs, None);
@@ -545,7 +545,7 @@ mod tests {
         }];
         let msgs = vec![ClaudeMessage {
             role: "user".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
         }];
 
         let conv = to_ir(&msgs, None);
@@ -555,7 +555,7 @@ mod tests {
         }
 
         let back = from_ir(&conv);
-        let parsed: Vec<ClaudeContentBlock> = serde_json::from_str(&back[0].content).unwrap();
+        let parsed: Vec<ClaudeContentBlock> = back[0].content.blocks();
         match &parsed[0] {
             ClaudeContentBlock::ToolResult { is_error, .. } => {
                 assert_eq!(*is_error, Some(true));
@@ -676,7 +676,7 @@ mod tests {
         }];
         let msgs = vec![ClaudeMessage {
             role: "user".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
         }];
 
         let conv = to_ir(&msgs, None);
@@ -965,7 +965,7 @@ mod tests {
         assert_eq!(system_prompt.as_deref(), Some("You are a code reviewer."));
         assert_eq!(claude_msgs.len(), 1); // system skipped
         assert_eq!(claude_msgs[0].role, "user");
-        assert_eq!(claude_msgs[0].content, "Review this code.");
+        assert_eq!(claude_msgs[0].content.text(), "Review this code.");
     }
 
     #[test]
@@ -987,7 +987,7 @@ mod tests {
         ];
         let msgs = vec![ClaudeMessage {
             role: "assistant".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
         }];
 
         let ir = claude_to_ir(&msgs, None);
@@ -1113,8 +1113,7 @@ mod tests {
 
         assert_eq!(claude_msgs.len(), 1);
         assert_eq!(claude_msgs[0].role, "assistant");
-        let parsed: Vec<ClaudeContentBlock> =
-            serde_json::from_str(&claude_msgs[0].content).unwrap();
+        let parsed: Vec<ClaudeContentBlock> = claude_msgs[0].content.blocks();
         match &parsed[0] {
             ClaudeContentBlock::ToolUse { id, name, input } => {
                 assert_eq!(id, "call_1");
@@ -1178,7 +1177,7 @@ mod tests {
         }];
         let msgs = vec![ClaudeMessage {
             role: "user".into(),
-            content: serde_json::to_string(&blocks).unwrap(),
+            content: abp_claude_sdk::dialect::ClaudeMessageContent::Blocks(blocks),
         }];
 
         let ir = claude_to_ir(&msgs, None);
@@ -1317,11 +1316,15 @@ mod tests {
             },
             ClaudeMessage {
                 role: "assistant".into(),
-                content: serde_json::to_string(&tool_use).unwrap(),
+                content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(
+                    serde_json::to_string(&tool_use).unwrap(),
+                ),
             },
             ClaudeMessage {
                 role: "user".into(),
-                content: serde_json::to_string(&tool_result).unwrap(),
+                content: abp_claude_sdk::dialect::ClaudeMessageContent::Text(
+                    serde_json::to_string(&tool_result).unwrap(),
+                ),
             },
             ClaudeMessage {
                 role: "assistant".into(),
@@ -1366,7 +1369,7 @@ mod tests {
         assert_eq!(claude_msgs.len(), 2);
         assert_eq!(claude_msgs[0].role, "user");
         assert_eq!(claude_msgs[1].role, "assistant");
-        assert_eq!(claude_msgs[1].content, "Hi there!");
+        assert_eq!(claude_msgs[1].content.text(), "Hi there!");
     }
 
     #[test]
@@ -1723,7 +1726,7 @@ mod tests {
         let msg = map_tool_result("tu_1", "file contents here", false);
         assert_eq!(msg.role, "user");
 
-        let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msg.content).unwrap();
+        let blocks: Vec<ClaudeContentBlock> = msg.content.blocks();
         match &blocks[0] {
             ClaudeContentBlock::ToolResult {
                 tool_use_id,
@@ -1745,7 +1748,7 @@ mod tests {
         use abp_claude_sdk::dialect::{ClaudeContentBlock, map_tool_result};
 
         let msg = map_tool_result("tu_err", "not found", true);
-        let blocks: Vec<ClaudeContentBlock> = serde_json::from_str(&msg.content).unwrap();
+        let blocks: Vec<ClaudeContentBlock> = msg.content.blocks();
         match &blocks[0] {
             ClaudeContentBlock::ToolResult { is_error, .. } => {
                 assert_eq!(*is_error, Some(true));

@@ -853,6 +853,30 @@ fn serde_roundtrip_agent_event_all_variants() {
             exit_code: None,
             output_preview: None,
         },
+        AgentEventKind::SessionStarted {
+            session_id: "s1".into(),
+        },
+        AgentEventKind::SessionResumed {
+            session_id: "s2".into(),
+            resumed_from: "s1".into(),
+        },
+        AgentEventKind::PermissionRequested {
+            tool_name: "bash".into(),
+            input: json!({}),
+        },
+        AgentEventKind::PermissionResolved {
+            tool_name: "bash".into(),
+            granted: true,
+            reason: None,
+        },
+        AgentEventKind::SubagentSpawned {
+            agent_id: "a1".into(),
+            task: "t".into(),
+        },
+        AgentEventKind::SubagentCompleted {
+            agent_id: "a1".into(),
+            success: true,
+        },
         AgentEventKind::Warning {
             message: "w".into(),
         },

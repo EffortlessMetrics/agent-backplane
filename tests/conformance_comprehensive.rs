@@ -1058,7 +1058,7 @@ fn claude_lowering_text_roundtrip() {
     // from_ir skips system messages
     assert_eq!(back.len(), 1);
     assert_eq!(back[0].role, "user");
-    assert!(back[0].content.contains("Hello Claude"));
+    assert!(back[0].content.text().contains("Hello Claude"));
 }
 
 #[test]
@@ -1462,7 +1462,7 @@ fn claude_map_work_order_produces_request() {
     let cfg = abp_claude_sdk::dialect::ClaudeConfig::default();
     let req = abp_claude_sdk::dialect::map_work_order(&wo, &cfg);
     assert!(!req.messages.is_empty());
-    assert!(req.messages[0].content.contains("Fix bug"));
+    assert!(req.messages[0].content.text().contains("Fix bug"));
 }
 
 #[test]

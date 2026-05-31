@@ -34,12 +34,15 @@
 //! cleanup behaviour, and edge cases for the `WorkspaceStager` and
 //! `WorkspaceManager` APIs.
 
+mod support;
+
 use abp_core::{WorkspaceMode, WorkspaceSpec};
 use abp_workspace::diff::{DiffAnalyzer, DiffPolicy, PolicyResult, diff_workspace};
 use abp_workspace::{WorkspaceManager, WorkspaceStager};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use support::crypto_fixtures;
 use tempfile::tempdir;
 use walkdir::WalkDir;
 
@@ -1032,14 +1035,22 @@ fn diff_policy_fail_too_many_files() {
 fn diff_policy_fail_denied_path() {
     let src = tempdir().unwrap();
     fs::create_dir_all(src.path().join("secrets")).unwrap();
-    fs::write(src.path().join("secrets").join("key.pem"), "old key").unwrap();
+    fs::write(
+        src.path().join("secrets").join("key.pem"),
+        crypto_fixtures::rsa_private_key_pem("abp-workspace-diff-policy", "diff-policy-old-key"),
+    )
+    .unwrap();
 
     let ws = WorkspaceStager::new()
         .source_root(src.path())
         .stage()
         .unwrap();
 
-    fs::write(ws.path().join("secrets").join("key.pem"), "new key").unwrap();
+    fs::write(
+        ws.path().join("secrets").join("key.pem"),
+        crypto_fixtures::rsa_private_key_pem("abp-workspace-diff-policy", "diff-policy-new-key"),
+    )
+    .unwrap();
 
     let analyzer = DiffAnalyzer::new(ws.path());
     let diff = analyzer.analyze().unwrap();

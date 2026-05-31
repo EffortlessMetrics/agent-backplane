@@ -108,6 +108,12 @@ fn event_kind_name(kind: &AgentEventKind) -> &'static str {
         AgentEventKind::ToolResult { .. } => "tool_result",
         AgentEventKind::FileChanged { .. } => "file_changed",
         AgentEventKind::CommandExecuted { .. } => "command_executed",
+        AgentEventKind::SessionStarted { .. } => "session_started",
+        AgentEventKind::SessionResumed { .. } => "session_resumed",
+        AgentEventKind::PermissionRequested { .. } => "permission_requested",
+        AgentEventKind::PermissionResolved { .. } => "permission_resolved",
+        AgentEventKind::SubagentSpawned { .. } => "subagent_spawned",
+        AgentEventKind::SubagentCompleted { .. } => "subagent_completed",
         AgentEventKind::Warning { .. } => "warning",
         AgentEventKind::Error { .. } => "error",
     }

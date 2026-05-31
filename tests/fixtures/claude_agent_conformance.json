@@ -1,0 +1,219 @@
+{
+  "version": "1.0",
+  "description": "Cross-surface conformance fixtures for Claude Agent SDK integration",
+  "fixtures": [
+    {
+      "id": "hello_shape",
+      "description": "Hello envelope must contain contract_version, backend, capabilities",
+      "assertions": {
+        "hello": {
+          "has_fields": ["contract_version", "backend", "capabilities"],
+          "contract_version": "abp/v0.1"
+        }
+      }
+    },
+    {
+      "id": "option_passthrough_model",
+      "description": "Model option passes through to SDK request",
+      "work_order_patch": {
+        "config": {
+          "vendor": {
+            "claude": {
+              "model": "claude-sonnet-4-20250514"
+            }
+          }
+        }
+      },
+      "assertions": {
+        "receipt": {
+          "outcome_in": ["complete", "partial"]
+        }
+      }
+    },
+    {
+      "id": "option_passthrough_max_turns",
+      "description": "maxTurns option passes through to SDK request",
+      "work_order_patch": {
+        "config": {
+          "vendor": {
+            "claude": {
+              "maxTurns": 5
+            }
+          }
+        }
+      },
+      "assertions": {
+        "receipt": {
+          "outcome_in": ["complete", "partial"]
+        }
+      }
+    },
+    {
+      "id": "hook_pre_tool_use",
+      "description": "pre_tool_use hook maps to tool_call with hook ext",
+      "inject_events": [
+        {
+          "type": "pre_tool_use",
+          "tool_name": "bash",
+          "tool_use_id": "tu-conf-1",
+          "input": {"command": "ls"},
+          "decision": "allow"
+        }
+      ],
+      "assertions": {
+        "events": {
+          "must_contain_type": "tool_call",
+          "tool_call_has_ext_hook": "pre_tool_use"
+        }
+      }
+    },
+    {
+      "id": "hook_post_tool_use",
+      "description": "post_tool_use hook maps to tool_result with hook ext",
+      "inject_events": [
+        {
+          "type": "post_tool_use",
+          "tool_name": "bash",
+          "tool_use_id": "tu-conf-2",
+          "output": "file1.txt"
+        }
+      ],
+      "assertions": {
+        "events": {
+          "must_contain_type": "tool_result",
+          "tool_result_has_ext_hook": "post_tool_use"
+        }
+      }
+    },
+    {
+      "id": "permission_flow",
+      "description": "permission_request emits permission_requested + permission_resolved",
+      "inject_events": [
+        {
+          "type": "permission_request",
+          "tool_name": "write",
+          "input": {"path": "/tmp/test"}
+        }
+      ],
+      "assertions": {
+        "events": {
+          "must_contain_types": ["permission_requested", "permission_resolved"],
+          "permission_resolved_granted": true
+        }
+      }
+    },
+    {
+      "id": "partial_messages",
+      "description": "Partial/stream messages emit assistant_delta",
+      "inject_events": [
+        {
+          "type": "stream_event",
+          "text": "hello"
+        },
+        {
+          "type": "partial",
+          "delta": " world"
+        }
+      ],
+      "assertions": {
+        "events": {
+          "must_contain_type": "assistant_delta",
+          "delta_count_gte": 2
+        }
+      }
+    },
+    {
+      "id": "session_started",
+      "description": "New session emits session_started event",
+      "assertions": {
+        "events": {
+          "must_contain_type": "run_started"
+        },
+        "receipt": {
+          "outcome_in": ["complete", "partial"]
+        }
+      }
+    },
+    {
+      "id": "checkpoint_event",
+      "description": "Checkpoint event maps to assistant_message with checkpoint ext",
+      "inject_events": [
+        {
+          "type": "checkpoint",
+          "checkpoint_id": "ckpt-conf-1"
+        }
+      ],
+      "assertions": {
+        "events": {
+          "must_contain_type": "assistant_message",
+          "assistant_message_has_ext_checkpoint": true
+        }
+      }
+    },
+    {
+      "id": "usage_normalization",
+      "description": "Usage is normalized to input_tokens/output_tokens",
+      "assertions": {
+        "receipt": {
+          "has_usage_fields": ["input_tokens", "output_tokens"]
+        }
+      }
+    },
+    {
+      "id": "receipt_shape",
+      "description": "Receipt has required fields: meta, backend, outcome, usage",
+      "assertions": {
+        "receipt": {
+          "has_fields": ["meta", "backend", "outcome", "usage", "usage_raw"],
+          "meta_has_fields": ["run_id", "contract_version", "started_at", "finished_at", "duration_ms"]
+        }
+      }
+    },
+    {
+      "id": "receipt_sdk_surface_label",
+      "description": "Receipt usage_raw contains sdk_surface label",
+      "assertions": {
+        "receipt": {
+          "usage_raw_has_sdk_surface": true
+        }
+      }
+    },
+    {
+      "id": "notification_event",
+      "description": "Notification maps to warning with notification ext",
+      "inject_events": [
+        {
+          "type": "notification",
+          "message": "Rate limit approaching",
+          "level": "warn"
+        }
+      ],
+      "assertions": {
+        "events": {
+          "must_contain_type": "warning"
+        }
+      }
+    },
+    {
+      "id": "subagent_lifecycle",
+      "description": "Subagent start/stop maps to spawned/completed events",
+      "inject_events": [
+        {
+          "type": "subagent_start",
+          "agent_id": "agent-conf-1",
+          "task": "refactor"
+        },
+        {
+          "type": "subagent_stop",
+          "agent_id": "agent-conf-1",
+          "success": true
+        }
+      ],
+      "assertions": {
+        "events": {
+          "must_contain_types": ["subagent_spawned", "subagent_completed"]
+        }
+      }
+    }
+  ]
+}

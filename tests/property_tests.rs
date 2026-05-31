@@ -127,7 +127,7 @@ mod claude {
         fn map_work_order_with_snippets(wo in arb_work_order_with_snippets()) {
             let cfg = ClaudeConfig::default();
             let req = map_work_order(&wo, &cfg);
-            prop_assert!(req.messages[0].content.contains(&wo.task));
+            prop_assert!(req.messages[0].content.text().contains(&wo.task));
         }
 
         /// Tool definition roundtrip: from_claude(to_claude(def)) == def

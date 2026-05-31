@@ -65,6 +65,26 @@ requests through ABP `WorkOrder` → `Receipt` pipeline.
 | **Extended thinking** | Native `ContentBlock::Thinking { text }` / `StreamDelta::ThinkingDelta { thinking }`. |
 | **Lowering** | `lowering::to_ir()` / `lowering::from_ir()`, `extract_system_prompt()` |
 
+### 1.2.1 Claude Agent SDK (Python / TS V1 / TS V2 preview)
+
+| Aspect | Details |
+|--------|---------|
+| **Sidecar hosts** | `hosts/claude/` (TS V1 + V2), `hosts/python/` (Python V1) |
+| **SDK packages** | `@anthropic-ai/claude-agent-sdk` (TS), `claude_agent_sdk` (Python) |
+| **Surfaces** | Python V1, TypeScript V1, TypeScript V2 preview |
+| **Transport modes** | `query` (one-shot), `client` (session-based), `prompt` (V2 one-shot), `session` (V2) |
+| **Session support** | Native — create, resume, fork (V1 only) |
+| **Permissions** | Native `canUseTool` callback, mapped to `permission_requested`/`permission_resolved` events |
+| **Hooks** | Native pre/post tool use hooks, mapped to `tool_call`/`tool_result` with `ext.hook` metadata |
+| **Sub-agents** | Native in TS V1/V2, mapped to `subagent_spawned`/`subagent_completed` events |
+| **Checkpointing** | Native when `enable_file_checkpointing` is set |
+| **MCP** | Native MCP server configuration passthrough |
+| **Extended thinking** | Native via `thinking` option |
+| **Vendor config** | `work_order.config.vendor.claude` — see [integration guide](claude_agent_sdk_integration.md) |
+
+> See [Claude Agent SDK Integration Guide](claude_agent_sdk_integration.md) for full
+> option mapping, event normalization, and activation details.
+
 ### 1.3 Google Gemini
 
 | Aspect | Details |
